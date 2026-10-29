@@ -73,6 +73,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout for publication preflight
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Check public publication prerequisites
+        run: node .github/scripts/check-library.cjs release
+
       # 生成 App bot 临时 token —— 替代 GITHUB_TOKEN,使后续 git push 能 bypass `protect main`。
       # token scope 自动限定到本 repo,权限继承 App(Contents: write),~1h 过期。
       - name: Generate App token
@@ -109,6 +117,12 @@ jobs:
           yarn lint
           yarn typecheck
           yarn test --maxWorkers=2
+          yarn prepare
+          node .github/scripts/check-library.cjs pack
+
+      - name: Record current version
+        id: before-release
+        run: printf 'version=%s\n' "$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       # commit author 用 App bot 身份(release commit 显示 verified + 归属 unif-release-bot[bot])。
       # bot 的 numeric user id 用 app-slug 反查,拼成 GitHub no-reply 邮箱。
@@ -150,6 +164,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           INCREMENT: ${{ inputs.increment || 'auto' }}
           EVENT_NAME: ${{ github.event_name }}
+          NPM_CONFIG_ACCESS: public
         run: |
           set -euo pipefail
 
@@ -196,18 +211,26 @@ jobs:
 
           npx release-it --ci
 
+      - name: Verify actual npm publication
+        env:
+          PREVIOUS_VERSION: ${{ steps.before-release.outputs.version }}
+        run: |
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$CURRENT_VERSION" = "$PREVIOUS_VERSION" ]; then
+            echo "::error::本次没有产生新版本，不能报告 npm 发布完成。"
+            exit 1
+          fi
+          node .github/scripts/check-library.cjs published
+
       # 发版成功后显式触发文档部署 —— dispatch 跑 main。
       # 不靠 deploy-docs 监听 release event:release 事件的 ref 是 tag(v*),而 GitHub Pages
       # environment 的部署分支策略只放行 main → tag 上的 deploy job 必被拒(实测 [release] 触发的
       # deploy 在 v0.3.0 上 failure)。workflow_dispatch 跑 main 绕开,且它是 GITHUB_TOKEN 防自触发
-      # 递归的例外(能触发新 run)。非 website 仓无此 workflow,容错跳过、不让发版失败。
+      # 递归的例外(能触发新 run)。文档站是公开交付前置，dispatch 失败必须报告。
       - name: Trigger docs deploy
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh workflow run deploy-docs.yml --ref main 2>/dev/null; then
-            echo "✓ 已 dispatch deploy-docs(main)"
-          else
-            echo "无 deploy-docs.yml(非 website 仓)或 dispatch 失败,跳过"
-          fi
+          gh workflow run deploy-docs.yml --ref main
+          echo "已触发文档部署；部署结果由 Deploy Docs 验证。"

@@ -1,5 +1,5 @@
 import { createLogger, getLogStatus } from '../src';
-import { installLogging } from '../src/runtime';
+import { installLogging } from '../src';
 import { createLogFiles } from '../src/files/createLogFiles.web';
 import type { LoggingHandle } from '../src';
 import { TEST_POLICY } from './policyFixture';

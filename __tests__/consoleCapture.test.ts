@@ -2,7 +2,7 @@ import { TEST_POLICY } from './policyFixture';
 import * as sdk from '@unif/react-native-design';
 import { createLogger, createOperationContext, getLogStatus } from '../src';
 import { createLogFiles } from '../src/files/createLogFiles.web';
-import { installLogging } from '../src/runtime';
+import { installLogging } from '../src';
 import type { LoggingHandle } from '../src/types';
 
 let handle: LoggingHandle | undefined;

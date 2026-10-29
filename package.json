@@ -10,11 +10,6 @@
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
-    "./runtime": {
-      "unif-react-native-logger-source": "./src/runtime/index.ts",
-      "types": "./lib/typescript/src/runtime/index.d.ts",
-      "default": "./lib/module/runtime/index.js"
-    },
     "./files": {
       "unif-react-native-logger-source": {
         "browser": "./src/files/index.web.ts",
@@ -24,22 +19,7 @@
       "browser": "./lib/module/files/index.web.js",
       "default": "./lib/module/files/index.js"
     },
-    "./normalization": {
-      "unif-react-native-logger-source": "./src/normalization/index.ts",
-      "types": "./lib/typescript/src/normalization/index.d.ts",
-      "default": "./lib/module/normalization/index.js"
-    },
-    "./package.json": "./package.json",
-    "./backend": {
-      "unif-react-native-logger-source": "./src/backend/index.ts",
-      "types": "./lib/typescript/src/backend/index.d.ts",
-      "default": "./lib/module/backend/index.js"
-    },
-    "./files/web": {
-      "unif-react-native-logger-source": "./src/files/index.web.ts",
-      "types": "./lib/typescript/src/files/index.web.d.ts",
-      "default": "./lib/module/files/index.web.js"
-    }
+    "./package.json": "./package.json"
   },
   "files": [
     "src",
@@ -62,7 +42,8 @@
     "build": "bob build",
     "check": "yarn typecheck && yarn test && yarn build",
     "format:check": "prettier --check src __tests__ example/App.tsx",
-    "check:entries": "node scripts/check-entrypoints.cjs"
+    "check:entries": "node scripts/check-entrypoints.cjs",
+    "website": "yarn workspace @unif/react-native-logger-website"
   },
   "keywords": [
     "react-native",
@@ -74,11 +55,11 @@
     "url": "git+https://github.com/unif-design/react-native-logger.git"
   },
   "author": "unif-design",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/unif-design/react-native-logger/issues"
   },
-  "homepage": "https://github.com/unif-design/react-native-logger#readme",
+  "homepage": "https://unif-design.github.io/react-native-logger/",
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@callstack/liquid-glass": "0.8.2",
@@ -129,7 +110,8 @@
     "react-native-blob-util": "^0.25.1"
   },
   "workspaces": [
-    "example"
+    "example",
+    "website"
   ],
   "packageManager": "yarn@4.11.0",
   "react-native-builder-bob": {
@@ -193,12 +175,15 @@
     ],
     "version": "0.63.1"
   },
-  "private": true,
   "dependencies": {
     "crypto-js": "^4.2.0",
     "lodash": "^4.18.1"
   },
   "resolutions": {
     "@react-native/eslint-config/eslint-plugin-ft-flow": "3.0.11"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

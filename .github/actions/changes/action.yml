@@ -73,6 +73,7 @@ runs:
             - 'cpp/**'
             - '.nvmrc'
             - '.github/actions/**'
+            - '.github/scripts/**'
             - '.github/workflows/ci.yml'
             - 'example/**'
             - '!example/ios/**'
@@ -142,6 +143,7 @@ runs:
           website:
             - 'AGENTS.md'
             - 'README.md'
+            - 'docs/**'
             - 'example/README.md'
             - 'example/INTEGRATION.md'
             - 'website/**'
@@ -166,6 +168,7 @@ runs:
             - 'tsconfig*.json'
             - '.nvmrc'
             - '.github/actions/**'
+            - '.github/scripts/**'
             - '.github/workflows/ci.yml'
           code:
             - 'type-tests/**'
@@ -193,6 +196,7 @@ runs:
             - 'react-native.config.js'
             - '.nvmrc'
             - '.github/actions/**'
+            - '.github/scripts/**'
             - '.github/ci/**'
             - '.github/workflows/ci.yml'
           example:
@@ -209,6 +213,7 @@ runs:
             - '!**/*.mdx'
             - 'scripts/**'
             - '.github/workflows/**'
+            - '.github/scripts/**'
             - 'eslint.config.*'
             - 'jest*.js'
             - 'jest*.mjs'

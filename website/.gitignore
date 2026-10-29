@@ -1,0 +1,5 @@
+/build/
+/.docusaurus/
+/static/llms.txt
+/static/llms-full.txt
+/static/md/

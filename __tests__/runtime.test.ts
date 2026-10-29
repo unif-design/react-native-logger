@@ -1,13 +1,8 @@
 import { TEST_POLICY } from './policyFixture';
 import { createLogger, createOperationContext, getLogStatus } from '../src';
-import { installLogging } from '../src/runtime';
-import type {
-  LogBackend,
-  LogFileStore,
-  LogWrite,
-  LoggingHandle,
-} from '../src/types';
-import type { LogLevel, LogTransport } from '@unif/react-native-design';
+import { installLogging } from '../src';
+import type { LogBackend, LogFileStore, LogWrite, LoggingHandle } from '../src';
+import type { LogLevel, LogTransport } from '../src';
 
 function fixture(development = false) {
   let level: LogLevel = 'warn';

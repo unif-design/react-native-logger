@@ -1,5 +1,5 @@
 import { createLogger, getLogStatus } from '../src/index';
-import { installLogging } from '../src/runtime/index';
+import { installLogging } from '../src';
 import { createLogFileStore } from '../src/files/createLogFileStore';
 import { createMemoryIO } from './filesFixture';
 import type { LogLevel, LogTransport } from '@unif/react-native-design';
