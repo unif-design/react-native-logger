@@ -8,6 +8,8 @@ export const LOG_LIMITS = Object.freeze({
   flushIntervalMs: 1000,
 });
 
+export const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
+
 export const LOG_TRANSPORT_ID = 'unif-local-diagnostics';
 export const APP_LOG_PREFIX = 'unif:';
 export const CONSOLE_METHODS = [

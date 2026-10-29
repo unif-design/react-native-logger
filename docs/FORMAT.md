@@ -14,6 +14,14 @@
 2026-10-29T00:00:00.000Z WARN [sample-app] [storage] write_failed op=run:operation:1 phase=write log_source=save.ts:46:9 error_source=adapter.ts:42:9 reason=storage_full
 ```
 
+安装时可传 `consoleTimeZone: 'Asia/Shanghai'`，按北京时间（UTC+08:00）展示为：
+
+```text
+2026-10-29T08:00:00.000+08:00 WARN [sample-app] [storage] write_failed ...
+```
+
+默认值为 `'UTC'`。该参数只改变可读控制台时间，跨日、跨年由库转换，不依赖设备当前时区；参数在本次安装时固定。JSONL、复制诊断和快照的结构化 timestamp 保持 UTC，耗时和事件序号不受影响。只支持上述两个值，不接受任意时区或偏移量。
+
 固定顺序为时间、级别、应用、模块和事件，后续展示实际存在的关联、阶段、错误码、位置及白名单字段。log_source／log_function 是记录点，error_source／error_function 是异常来源，两者不互相替代。字段控制字符转义，可读行不展开错误正文或完整堆栈。
 
 默认后端的结构化记录采用同一格式。显式传入自定义后端时，应用通过 console 选项连接该后端的实际控制台 transport；第三方原始输出不根据文本前缀猜测改写。console 选项同时明确启用原始 console 采集，省略时不替换全局 console。

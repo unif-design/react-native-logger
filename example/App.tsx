@@ -20,6 +20,7 @@ function Diagnostics() {
     let active = true;
     try {
       installed = installLogging({
+        consoleTimeZone: 'Asia/Shanghai',
         policy: {
           service: 'logger-example',
           allowedFields: ['reason'],

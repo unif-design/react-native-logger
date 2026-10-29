@@ -3,7 +3,10 @@ import { formatLogLine } from '../src/formatLogLine';
 import { serializeLogRecord } from '../src/serializeLogRecord';
 import type { LogRecordInput } from '../src/types';
 
-function format(overrides: Partial<LogRecordInput> = {}) {
+function format(
+  overrides: Partial<LogRecordInput> = {},
+  timeZone?: 'UTC' | 'Asia/Shanghai',
+) {
   const serialized = serializeLogRecord(
     {
       schemaVersion: 1,
@@ -23,7 +26,7 @@ function format(overrides: Partial<LogRecordInput> = {}) {
     TEST_POLICY,
   );
   return {
-    line: formatLogLine(serialized!.record),
+    line: formatLogLine(serialized!.record, timeZone),
     record: serialized!.record,
   };
 }
@@ -94,4 +97,28 @@ test('诊断字段裁剪仍显示truncated，不追加完整栈或自定义对�
   expect(line).toContain('truncated=true');
   expect(line).toContain('error_source=main.jsbundle:1:123');
   expect(line).not.toContain('private detail');
+});
+
+test.each([
+  ['2026-10-29T00:00:00.000Z', '2026-10-29T08:00:00.000+08:00'],
+  ['2026-12-31T20:30:00.123Z', '2027-01-01T04:30:00.123+08:00'],
+  ['2028-02-28T20:00:00.000Z', '2028-02-29T04:00:00.000+08:00'],
+])('北京时间显示 %s，结构化时间不变', (timestamp, display) => {
+  const result = format({ timestamp }, 'Asia/Shanghai');
+  expect(result.line.startsWith(`${display} WARN `)).toBe(true);
+  expect(result.record.timestamp).toBe(timestamp);
+});
+
+test('默认及显式 UTC 都保留原显示', () => {
+  const timestamp = '2026-10-29T00:00:00.000Z';
+  expect(format({ timestamp }).line.startsWith(`${timestamp} WARN `)).toBe(
+    true,
+  );
+  expect(format({ timestamp }, 'UTC').line).toBe(format({ timestamp }).line);
+});
+
+test('无法解析的时间安全保留，不能阻断日志展示', () => {
+  expect(format({ timestamp: 'unavailable' }, 'Asia/Shanghai').line).toMatch(
+    /^unavailable WARN /,
+  );
 });

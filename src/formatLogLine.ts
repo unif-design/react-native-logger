@@ -1,4 +1,10 @@
-import type { DiagnosticRecord, LogSource, LogValue } from './types';
+import { BEIJING_OFFSET_MS } from './constants';
+import type {
+  DiagnosticRecord,
+  LogSource,
+  LogValue,
+  LogConsoleTimeZone,
+} from './types';
 
 function atom(value: LogValue | readonly LogValue[]): string {
   return typeof value === 'string' && /^[a-z\d_.:/-]+$/i.test(value)
@@ -10,9 +16,19 @@ function atom(value: LogValue | readonly LogValue[]): string {
       );
 }
 
-export function formatLogLine(record: DiagnosticRecord): string {
+export function formatLogLine(
+  record: DiagnosticRecord,
+  timeZone: LogConsoleTimeZone = 'UTC',
+): string {
+  let timestamp = atom(record.timestamp);
+  if (timeZone === 'Asia/Shanghai') {
+    const display = new Date(Date.parse(record.timestamp) + BEIJING_OFFSET_MS);
+    if (Number.isFinite(display.getTime())) {
+      timestamp = display.toISOString().replace(/Z$/, '+08:00');
+    }
+  }
   const parts = [
-    atom(record.timestamp),
+    timestamp,
     record.level.toUpperCase(),
     `[${record.service}]`,
     `[${atom(record.scope)}]`,

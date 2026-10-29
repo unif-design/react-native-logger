@@ -84,3 +84,30 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Local validation and package artifacts
+coverage/
+.cache/
+*.tsbuildinfo
+*.tgz
+*.log
+*.jsbundle
+*.jsbundle.map
+*.hbc
+/example/android/app/src/main/assets/index.android.bundle*
+
+# Local environment configuration; keep distributable examples
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.template
+
+# Private signing material; the RN template debug key is required by example builds
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.jks
+*.keystore
+!example/android/app/debug.keystore

@@ -14,6 +14,7 @@ export type {
   LogBackend,
   LogEnvironment,
   ConsoleCaptureOptions,
+  LogConsoleTimeZone,
   FailureDiagnostics,
   LogMetadata,
   LogStatus,

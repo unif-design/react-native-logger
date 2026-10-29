@@ -333,3 +333,38 @@ test('采集失败不改变原 console 的返回或抛错', async () => {
   expect(getLogStatus().lastFailureCode).toBe('logger.transport_failed');
   expect(setup.originals.warn).toHaveBeenCalledTimes(1);
 });
+
+test('安装参数仅改变控制台时区，文件和复制诊断仍使用 UTC', async () => {
+  const setup = fixture();
+  const options = {
+    ...setup.options,
+    policy: TEST_POLICY,
+    consoleTimeZone: 'Asia/Shanghai' as 'UTC' | 'Asia/Shanghai',
+    now: () => Date.UTC(2026, 11, 31, 20, 30, 0, 123),
+  };
+  handle = installLogging(options);
+  await handle.setOwner(null);
+  options.consoleTimeZone = 'UTC';
+  const report = createLogger('module').captureError('failed');
+  expect(setup.originals.error.mock.calls[0][0]).toMatch(
+    /^2027-01-01T04:30:00.123\+08:00 ERROR /,
+  );
+  expect(setup.records()[0].timestamp).toBe('2026-12-31T20:30:00.123Z');
+  expect(JSON.parse(report!).timestamp).toBe('2026-12-31T20:30:00.123Z');
+  expect(setup.records()).toHaveLength(1);
+});
+
+test.each(['', 'Asia/Tokyo', null, 480])(
+  '无效控制台时区 %s 在安装时拒绝',
+  (consoleTimeZone) => {
+    const setup = fixture();
+    expect(() => {
+      handle = installLogging({
+        ...setup.options,
+        policy: TEST_POLICY,
+        consoleTimeZone: consoleTimeZone as never,
+      });
+    }).toThrow('Invalid console time zone');
+    expect(getLogStatus().installed).toBe(false);
+  },
+);

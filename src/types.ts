@@ -1,6 +1,7 @@
 import type { LogLevel, Logger, LogTransport } from './backend/types';
 
 export type { LogLevel } from './backend/types';
+export type LogConsoleTimeZone = 'UTC' | 'Asia/Shanghai';
 export type LogTrigger = 'user' | 'startup' | 'background' | 'h5' | 'system';
 export type LogOutcome =
   | 'success'
@@ -146,6 +147,8 @@ export interface LoggingOptions {
   createId(): string;
   backend?: LogBackend;
   console?: ConsoleCaptureOptions;
+  /** 仅控制可读日志展示；结构化 timestamp 始终为 UTC。 */
+  consoleTimeZone?: LogConsoleTimeZone;
   now?: () => number;
   monotonicNow?: () => number;
 }

@@ -15,39 +15,35 @@
 
 ```ts
 import { Platform } from 'react-native';
-import {
-  createLogger,
-  createOperationContext,
-} from '@unif/react-native-logger';
 import { createLogFiles } from '@unif/react-native-logger/files';
 import { installLogging } from '@unif/react-native-logger/runtime';
-import { consoleTransport } from '@unif/react-native-logger/backend';
 
-// createId 由应用提供，返回本次运行内可靠唯一的诊断标识。
-const logging = installLogging({
-  policy: {
-    service: 'sample-app',
-    allowedFields: ['reason', 'operation', 'count'],
-    startupScopes: ['bootstrap'],
-  },
-  environment: {
-    appVersion: '1.0.0',
-    platform: Platform.OS,
-    osVersion: String(Platform.Version),
-    development: __DEV__,
-  },
-  createId,
-  files: createLogFiles({ directoryName: 'SampleLogs', createId }),
-  console: { target: console, transport: consoleTransport },
-});
-
-// 身份恢复完成后设置既有身份摘要；匿名使用 null。
-await logging.setOwner(null);
-createLogger('bootstrap').info('ready', {
-  context: createOperationContext('startup'),
-  fields: { count: 1 },
-});
+// 应用启动时调用一次；传入应用已有的唯一诊断标识生成函数。
+export async function initializeLogger(createId: () => string) {
+  const logging = installLogging({
+    consoleTimeZone: 'Asia/Shanghai', // 可选，默认 UTC
+    policy: {
+      service: 'sample-app',
+      allowedFields: ['reason', 'operation', 'count'],
+      startupScopes: ['bootstrap'],
+    },
+    environment: {
+      appVersion: '1.0.0',
+      platform: Platform.OS,
+      osVersion: String(Platform.Version),
+      development: __DEV__,
+    },
+    createId,
+    files: createLogFiles({ directoryName: 'SampleLogs', createId }),
+  });
+  await logging.setOwner(null); // 匿名；账号恢复后传应用已有的身份摘要
+  return logging;
+}
 ```
+
+上述初始化使用默认后端，不需要 Design。`consoleTimeZone` 只控制库的可读控制台输出：`'UTC'` 保持原格式，`'Asia/Shanghai'` 按北京时间（UTC+08:00）显示，例如 `2026-10-29T08:00:00.000+08:00`。文件 JSONL、`captureError` 和快照中的 `timestamp` 始终保留 UTC；时间由库生成，调用方不用传。
+
+默认不替换全局 console。需要额外采集原始 console 时，再从 `/backend` 导入 `consoleTransport`，传入 `console: { target: console, transport: consoleTransport }`。
 
 策略在安装时固定，缺失或包含敏感／原型字段时拒绝安装。`directoryName` 必须是单个安全目录名，不接受绝对路径、分隔符或父目录。实际目录为 iOS Library 或 Android DocumentDir 下的专属子目录；应用迁移须继续传原目录名和身份摘要，避免丢失原日志访问范围。
 
@@ -64,6 +60,12 @@ log.warn('capture.unavailable', { fields: { reason: 'permission_denied' } });
 生产者采用同一实例。各库将本包声明为 `peerDependency` 并在开发依赖中安装，不内嵌／打包另一份运行时；宿主锁定一致版本。
 
 日志字段、控制台文本与 JSONL 契约见 [输出格式](docs/FORMAT.md)。
+
+## 存储与清理范围
+
+`directoryName` 自定义日志目录名；iOS 存放于应用 Library 下，Android 存放于应用 DocumentDir 下。文件命名、身份分区、轮转与快照释放由库维护，默认入口不接受任意完整路径或逐条指定文件名。需要其他存储后端时，通过 `createLogFileStore({ io, createId })` 提供实际 IO。
+
+`/files` 仅管理本库日志和快照，不提供下载、业务附件删除或应用缓存清理。`logging.clear()` 只清理当前身份的受控日志；保留期限与容量策略按日志契约管理本库日志段。
 
 ## 公开入口
 
@@ -94,5 +96,7 @@ yarn build
 yarn example typecheck
 yarn lint
 ```
+
+Git 忽略依赖、构建产物、覆盖率、缓存、打包归档、本地环境和私有签名文件；源码、测试、文档、`.github`、锁文件、固定 Yarn 运行时及示例工程保留。示例的标准 debug keystore 是构建所需测试材料。npm 发布范围由 `package.json.files` 单独控制，包含运行所需的 `lib`，不包含示例、测试或本机配置。
 
 组织模板、接入范围和验证边界见 [开发说明](docs/DEVELOPMENT.md)。
