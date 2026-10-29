@@ -5,6 +5,7 @@ const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { setTimeout: sleep } = require('node:timers/promises');
 
 const REGISTRY = 'https://registry.npmjs.org/';
 const MODES = ['source', 'pack', 'release', 'published'];
@@ -245,16 +246,28 @@ function inspectArchive(archive, expected) {
   return files.length;
 }
 
-async function registryMetadata(pkg, request) {
-  let response;
-  try {
-    response = await request(`${REGISTRY}${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}`, {
-      headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20000), redirect: 'error',
-    });
-  } catch (error) { throw new Error('npm registry request failed', { cause: error }); }
-  requireValue(response.ok, `npm registry returned HTTP ${response.status}`);
+async function registryMetadata(pkg, request, wait) {
   let value;
-  try { value = await response.json(); } catch (error) { throw new Error('npm registry returned invalid JSON', { cause: error }); }
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    let response;
+    try {
+      response = await request(`${REGISTRY}${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}`, {
+        headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20000), redirect: 'error',
+      });
+      if (response.ok) value = await response.json();
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new Error('npm registry returned invalid JSON', { cause: error });
+      if (attempt === 6) throw new Error('npm registry request failed after 6 attempts', { cause: error });
+      await wait(5000);
+      continue;
+    }
+    if (response.ok) break;
+    const retryable = [404, 408, 429].includes(response.status) || (response.status >= 500 && response.status <= 599);
+    requireValue(retryable && attempt < 6, `npm registry returned HTTP ${response.status} after ${attempt} attempt(s)`);
+    // Discard error response bodies before retrying the registry connection.
+    await response.body?.cancel().catch(() => {});
+    await wait(5000);
+  }
   requireValue(record(value) && value.name === pkg.name, 'npm registry package name does not match');
   requireValue(value.version === pkg.version, 'npm registry version does not match the current version');
   const download = httpUrl(value.dist?.tarball, 'registry tarball');
@@ -286,7 +299,7 @@ async function checkLibrary(mode, directory = process.cwd(), options = {}) {
     validateRelease(root, pkg, readme);
     return result;
   }
-  const metadata = mode === 'published' ? await registryMetadata(pkg, options.fetch || globalThis.fetch) : null;
+  const metadata = mode === 'published' ? await registryMetadata(pkg, options.fetch || globalThis.fetch, options.wait || sleep) : null;
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'unif-library-pack-'));
   try {
     const userconfig = path.join(temporary, 'user.npmrc');
