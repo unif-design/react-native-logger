@@ -28,6 +28,6 @@ export default defineConfig([
     languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs' },
   },
   {
-    ignores: ['node_modules/', 'lib/'],
+    ignores: ['node_modules/', 'lib/', 'website/'],
   },
 ]);

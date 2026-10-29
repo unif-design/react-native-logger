@@ -39,6 +39,16 @@ jobs:
         run: test "$CHANGES_RESULT" = success
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout organization standards
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: unif-design/.github
+          ref: main
+          path: .unif-standards
+          persist-credentials: false
+      - name: Check library onboarding and managed templates
+        run: bash .unif-standards/scripts/check-repo.sh "${GITHUB_REPOSITORY#*/}" "$GITHUB_WORKSPACE"
+        shell: bash
       - name: Test verification decisions
         run: node --test .github/actions/verification/verification.test.cjs
       - name: Run actionlint
@@ -181,6 +191,9 @@ jobs:
 
       - name: Build package
         run: yarn prepare
+
+      - name: Verify packed public entrypoints
+        run: node .github/scripts/check-library.cjs pack
 
   build-android:
     runs-on: ubuntu-latest

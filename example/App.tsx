@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as design from '@unif/react-native-design';
-import { createLogger, getLogStatus } from '@unif/react-native-logger';
+import {
+  createLogger,
+  getLogStatus,
+  installLogging,
+} from '@unif/react-native-logger';
 import type { LoggingHandle } from '@unif/react-native-logger';
 import { createLogFiles } from '@unif/react-native-logger/files';
-import { installLogging } from '@unif/react-native-logger/runtime';
 
 let sequence = 0;
 const createId = () => `example-${Date.now()}-${++sequence}`;

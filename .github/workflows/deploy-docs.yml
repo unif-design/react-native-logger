@@ -1,0 +1,107 @@
+# 目标路径:.github/workflows/deploy-docs.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 仅有 website/ 的仓才下发(sync 条件分发)。
+#
+# 占位符(sync-repo.sh 替换):
+#   @unif/react-native-logger  → npm 包名(如 @unif/react-native-design);website workspace = @unif/react-native-logger-website
+#   https://unif-design.github.io/react-native-logger/ → GitHub Pages URL(如 https://unif-design.github.io/react-native-design/)
+name: Deploy Docs
+
+# Docusaurus 站点部署到 GitHub Pages。
+# 默认 URL:https://unif-design.github.io/react-native-logger/
+#
+# 前置(一次性):
+#   GitHub repo → Settings → Pages → Source: GitHub Actions
+#
+# 触发:
+#   - push:main 且改了 website/src/package 等
+#   - 手动 workflow_dispatch / release.yml 发版成功后 dispatch(跑 main,绕开 release 事件的 tag ref)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'docs/**'
+      - 'example/src/**'
+      - '!example/src/__tests__/**'
+      - '!example/src/**/__tests__/**'
+      - '!example/src/*.test.*'
+      - '!example/src/**/*.test.*'
+      - '!example/src/*.spec.*'
+      - '!example/src/**/*.spec.*'
+      - 'src/**'                          # website 直接 import library 源码
+      - 'package.json'
+      - 'yarn.lock'
+      - '.github/workflows/deploy-docs.yml'
+  # 发版后由 release.yml 在 release job 成功后显式 dispatch 本 workflow(跑 main)刷新版本号。
+  # 不用 on.release —— release 事件的 ref 是 tag(v*),deploy job 会被 GitHub Pages environment
+  # 的「仅 main」部署分支策略拒(实测 [release] 触发的 deploy 在 v* tag 上 failure)。见 release.yml。
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# GitHub Pages 官方推荐:同一时间只 1 个 deploy in flight,新的等老的跑完
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      package_label: ${{ steps.package.outputs.label }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0          # docusaurus 算 last-updated 时间要全历史
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Record documentation package
+        id: package
+        run: printf 'label=%s\n' "$(node -p "const p = require('./package.json'); p.name + '@' + p.version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build website
+        run: yarn workspace @unif/react-native-logger-website build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: website/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+      - name: Verify public documentation
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_PACKAGE: ${{ needs.build.outputs.package_label }}
+        run: |
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 30 --retry 5 --retry-all-errors --retry-delay 3 "$PAGE_URL" --output /dev/null
+          index_file="$(mktemp)"
+          trap 'rm -f "$index_file"' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location --connect-timeout 10 --max-time 30 "${PAGE_URL%/}/llms.txt" --output "$index_file" && grep -Fq -- "\`$EXPECTED_PACKAGE\`" "$index_file"; then
+              echo "文档已可访问，版本对应 $EXPECTED_PACKAGE"
+              exit 0
+            fi
+            if [ "$attempt" -lt 5 ]; then sleep 5; fi
+          done
+          echo "::error::线上文档未对应本次构建版本 $EXPECTED_PACKAGE"
+          exit 1

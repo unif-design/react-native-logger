@@ -1,7 +1,4 @@
-import {
-  redactDiagnosticText,
-  isSensitiveDiagnosticField,
-} from '../src/normalization';
+import { redactDiagnosticText, isSensitiveDiagnosticField } from '../src';
 import { redactLogText } from '../src/normalization/redactLogText';
 
 test.each([

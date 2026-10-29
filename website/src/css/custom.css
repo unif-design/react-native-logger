@@ -1,0 +1,93 @@
+:root {
+  --ifm-color-primary: #b35400;
+  --ifm-color-primary-dark: #a14c00;
+  --ifm-color-primary-darker: #984700;
+  --ifm-color-primary-darkest: #7d3b00;
+  --ifm-color-primary-light: #c55c00;
+  --ifm-color-primary-lighter: #ce6100;
+  --ifm-color-primary-lightest: #e96d00;
+  --ifm-font-family-base:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
+  --ifm-font-family-monospace: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  --docusaurus-highlighted-code-line-bg: rgba(235, 110, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #ffad66;
+  --ifm-color-primary-dark: #ff983d;
+  --ifm-color-primary-darker: #ff8e29;
+  --ifm-color-primary-darkest: #eb6e00;
+  --ifm-color-primary-light: #ffc28f;
+  --ifm-color-primary-lighter: #ffcca3;
+  --ifm-color-primary-lightest: #ffebdf;
+}
+
+main.unif-home.logger-home {
+  --primary: var(--ifm-color-primary);
+  --primary-pressed: var(--ifm-color-primary-dark);
+  --on-primary: var(--ifm-background-color);
+}
+.logger-container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: 32px;
+  padding-right: 32px;
+}
+.logger-home .hp-title {
+  font-size: clamp(2.3rem, 5vw, 3.5rem);
+  line-height: 1.2;
+}
+.logger-home .hp-cta-row {
+  flex-wrap: wrap;
+}
+.logger-home .hp-btn:focus-visible {
+  outline: 3px solid var(--ifm-color-primary);
+  outline-offset: 4px;
+}
+.logger-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  padding-bottom: 48px;
+}
+.logger-features article {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+}
+.logger-features h2 {
+  font-size: 1.25rem;
+}
+.logger-features p,
+.logger-example p {
+  color: var(--foreground-muted);
+}
+.logger-example {
+  padding-bottom: 64px;
+}
+.logger-example pre {
+  max-width: 100%;
+  padding: 24px;
+  font-size: 0.875rem;
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .logger-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .logger-home .hp-hero {
+    padding-top: 44px;
+    padding-bottom: 36px;
+  }
+  .logger-features {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .logger-home .hp-tagline {
+    font-size: 1rem;
+  }
+}
