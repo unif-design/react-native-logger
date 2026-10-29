@@ -1,6 +1,6 @@
 {
   "name": "@unif/react-native-logger",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Unif React Native 结构化日志、脱敏与本地文件诊断",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
