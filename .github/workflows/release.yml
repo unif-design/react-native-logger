@@ -49,6 +49,11 @@ on:
           - patch
           - minor
           - major
+      verify_only:
+        description: '仅核验已发布版本并刷新文档，不发新版，忽略版本类型'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # 同一时间只允许一个发版 run —— 防并发 release-it 互撞 tag/push,
@@ -62,14 +67,16 @@ permissions: {}
 
 jobs:
   release:
+    outputs:
+      revision: ${{ steps.publication.outputs.revision }}
+      version: ${{ steps.publication.outputs.version }}
     permissions:
       contents: write     # 兜底;实际 push 走下面的 App token(GITHUB_TOKEN 进不了受保护 main)
       id-token: write     # npm Trusted Publishing(OIDC)+ provenance attestations
-      actions: write      # 发版后 gh workflow run dispatch deploy-docs(workflow_dispatch 是 GITHUB_TOKEN 防递归的例外)
     # 兜底防自触发循环:push 上来的若是 release-it 自己推的 "chore: release" commit 直接 skip。
     # 主防线是该 commit 带 [skip ci](push 会被 Actions 跳过);这里是第二道,防 [skip ci] 失效。
     # workflow_dispatch 无 head_commit,前半条件 true 短路 → 手动发版照常,不受影响。
-    if: "${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}"
+    if: "${{ !inputs.verify_only && (github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release')) }}"
     runs-on: ubuntu-latest
 
     steps:
@@ -211,7 +218,8 @@ jobs:
 
           npx release-it --ci
 
-      - name: Verify actual npm publication
+      - name: Record published revision
+        id: publication
         env:
           PREVIOUS_VERSION: ${{ steps.before-release.outputs.version }}
         run: |
@@ -219,6 +227,43 @@ jobs:
           if [ "$CURRENT_VERSION" = "$PREVIOUS_VERSION" ]; then
             echo "::error::本次没有产生新版本，不能报告 npm 发布完成。"
             exit 1
+          fi
+          printf 'revision=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+  verify-publication:
+    needs: release
+    if: "${{ always() && (needs.release.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.verify_only)) }}"
+    permissions:
+      contents: read
+      actions: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require publication outputs
+        if: needs.release.result == 'success'
+        env:
+          PUBLISHED_REVISION: ${{ needs.release.outputs.revision }}
+          PUBLISHED_VERSION: ${{ needs.release.outputs.version }}
+        run: test -n "$PUBLISHED_REVISION" && test -n "$PUBLISHED_VERSION"
+
+      - name: Checkout published revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.release.outputs.revision || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify actual npm publication
+        env:
+          EXPECTED_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          if [ -n "$EXPECTED_VERSION" ]; then
+            test "$(node -p "require('./package.json').version")" = "$EXPECTED_VERSION"
           fi
           node .github/scripts/check-library.cjs published
 
