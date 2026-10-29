@@ -1,0 +1,43 @@
+# 目标路径:.github/workflows/pr-title.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+name: PR Title
+
+# 校验 PR 标题符合 conventional commits。
+#
+# 为什么单独守这道关:repo 走 squash merge,squash commit 的 message 默认取 PR 标题
+# 并作为唯一 commit 进 main;而 release-it 用 conventional-changelog 扫 commit message
+# 决定 bump 类型 + 写 CHANGELOG。本地 commitlint(lefthook commit-msg)只管本地 commit
+# —— squash 会把它们压扁丢弃,最终进 main 的 message 是 PR 标题,commitlint 够不着。
+# 标题不规范(如 "Fix/website xxx")会让 release-it 漏判版本 / changelog 缺条。
+#
+# type 列表跟 package.json#commitlint 的 @commitlint/config-conventional 对齐。
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      # 用 pull_request_target(在 base 仓库上下文跑,拿得到 token)。
+      # 这个 action 只读 PR 标题、不 checkout/执行 PR 代码,所以对 fork PR 也安全。
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert

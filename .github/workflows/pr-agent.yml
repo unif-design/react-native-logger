@@ -1,0 +1,23 @@
+# 目标路径:.github/workflows/pr-agent.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+name: PR Agent
+
+# 调用 org 级 reusable workflow(unif-design/.github),走 DeepSeek 自动 review。
+# 项目特有 review 规则放在仓库根目录的 .pr_agent.toml,会被 PR-Agent 自动 merge。
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  call:
+    uses: unif-design/.github/.github/workflows/pr-agent.yml@main
+    secrets:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

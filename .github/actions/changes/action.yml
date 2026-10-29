@@ -1,0 +1,231 @@
+name: Select affected checks
+description: Shared library CI input classification
+outputs:
+  manifest_runtime:
+    description: Package runtime fields changed
+    value: ${{ steps.manifest.outputs.runtime }}
+  shared:
+    description: Shared runtime or build inputs
+    value: ${{ steps.paths.outputs.shared == 'true' || steps.manifest.outputs.runtime == 'true' }}
+  js:
+    description: Library JavaScript or TypeScript
+    value: ${{ steps.paths.outputs.js }}
+  android:
+    description: Android native inputs
+    value: ${{ steps.paths.outputs.android }}
+  ios:
+    description: iOS native inputs
+    value: ${{ steps.paths.outputs.ios }}
+  website:
+    description: Website inputs
+    value: ${{ steps.paths.outputs.website }}
+  code:
+    description: Code or validation inputs
+    value: ${{ steps.paths.outputs.code == 'true' || steps.manifest.outputs.runtime == 'true' }}
+  example:
+    description: Shared example inputs including tests
+    value: ${{ steps.paths.outputs.example }}
+  tooling:
+    description: Repository verification tooling
+    value: ${{ steps.paths.outputs.tooling }}
+  instructions:
+    description: Usage and development instructions
+    value: ${{ steps.paths.outputs.instructions }}
+  has_website:
+    description: Website workspace exists
+    value: ${{ steps.project.outputs.has_website }}
+runs:
+  using: composite
+  steps:
+    - name: Detect website workspace
+      id: project
+      shell: bash
+      run: |
+        if [[ -f website/package.json ]]; then
+          printf 'has_website=true\n' >> "$GITHUB_OUTPUT"
+        else
+          printf 'has_website=false\n' >> "$GITHUB_OUTPUT"
+        fi
+    - name: Filter changed paths
+      id: paths
+      uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      with:
+        predicate-quantifier: some-with-excludes
+        filters: |
+          shared:
+            - '!**/*.md'
+            - '!**/*.mdx'
+            - '!example/jest*.js'
+            - '!example/jest*.mjs'
+            - '!example/jest*.ts'
+            - '!example/**/__tests__/**'
+            - '!example/**/*.test.*'
+            - '!example/**/*.spec.*'
+            - '!scripts/verification-utils.mjs'
+            - '!scripts/dependency-contract.mjs'
+            - 'yarn.lock'
+            - '.yarnrc.yml'
+            - '.yarn/releases/**'
+            - 'turbo.json'
+            - 'tsconfig*.json'
+            - 'babel.config.js'
+            - 'react-native.config.js'
+            - 'cpp/**'
+            - '.nvmrc'
+            - '.github/actions/**'
+            - '.github/workflows/ci.yml'
+            - 'example/**'
+            - '!example/ios/**'
+            - '!example/android/**'
+            - '!example/Gemfile'
+            - '!example/Gemfile.lock'
+            - '!example/package.json'
+            - '!example/*.md'
+            - '!example/**/*.md'
+            - '!example/src/__tests__/**'
+            - '!example/src/**/__tests__/**'
+            - '!example/src/*.test.*'
+            - '!example/src/**/*.test.*'
+            - '!example/src/*.spec.*'
+            - '!example/src/**/*.spec.*'
+            - 'scripts/**'
+            - '!scripts/verify-ios-integration.mjs'
+            - '!scripts/verify-android-integration.mjs'
+            - '!scripts/check-config.js'
+            - '!scripts/check-config.d.ts'
+            - '!scripts/check-icons-generated.js'
+            - '!scripts/check-jest-entries.js'
+            - '!scripts/check-runtime-peers.js'
+            - '!scripts/check-runtime-peers.d.ts'
+            - '!scripts/check-turbo-inputs.js'
+            - '!scripts/verify-agent-instructions.mjs'
+            - '!scripts/verify-dependencies.mjs'
+            - '!scripts/verify-package.mjs'
+            - '!scripts/verify-consumers.mjs'
+            - '!scripts/verify-publish-contract.mjs'
+            - '!scripts/verify-example-contract.mjs'
+            - '!scripts/verify-example-showcase.mjs'
+            - '!scripts/run-example-jest.mjs'
+            - '!scripts/run-example-jest-focused.mjs'
+            - '!scripts/__tests__/**'
+            - '!scripts/**/*.test.*'
+            - '!scripts/fixtures/**'
+          js:
+            - 'src/**'
+            - '!src/__tests__/**'
+            - '!src/**/__tests__/**'
+            - '!src/*.test.*'
+            - '!src/**/*.test.*'
+            - '!src/*.spec.*'
+            - '!src/**/*.spec.*'
+            - '!src/**/*.md'
+          android:
+            - 'android/**'
+            - 'example/android/**'
+            - '.github/ci/android.sh'
+            - 'scripts/verify-android-integration.mjs'
+            - '!**/*.md'
+            - '!**/*.mdx'
+          ios:
+            - 'ios/**'
+            - 'example/ios/**'
+            - 'example/Gemfile'
+            - 'example/Gemfile.lock'
+            - '*.podspec'
+            - '.github/ci/ios.sh'
+            - 'scripts/verify-ios-integration.mjs'
+            - '!**/*.md'
+            - '!**/*.mdx'
+          manifest:
+            - 'package.json'
+            - 'example/package.json'
+          website:
+            - 'AGENTS.md'
+            - 'README.md'
+            - 'example/README.md'
+            - 'example/INTEGRATION.md'
+            - 'website/**'
+            - 'example/src/**'
+            - '!example/src/__tests__/**'
+            - '!example/src/**/__tests__/**'
+            - '!example/src/*.test.*'
+            - '!example/src/**/*.test.*'
+            - '!example/src/*.spec.*'
+            - '!example/src/**/*.spec.*'
+            - 'src/**'
+            - '!src/__tests__/**'
+            - '!src/**/__tests__/**'
+            - '!src/*.test.*'
+            - '!src/**/*.test.*'
+            - '!src/*.spec.*'
+            - '!src/**/*.spec.*'
+            - 'package.json'
+            - 'yarn.lock'
+            - '.yarnrc.yml'
+            - '.yarn/releases/**'
+            - 'tsconfig*.json'
+            - '.nvmrc'
+            - '.github/actions/**'
+            - '.github/workflows/ci.yml'
+          code:
+            - 'type-tests/**'
+            - 'src/**'
+            - 'android/**'
+            - 'ios/**'
+            - 'cpp/**'
+            - '*.podspec'
+            - 'example/**'
+            - '!**/*.md'
+            - '!**/*.mdx'
+            - '!example/package.json'
+            - 'scripts/**'
+            - '__tests__/**'
+            - 'yarn.lock'
+            - '.yarnrc.yml'
+            - '.yarn/releases/**'
+            - 'turbo.json'
+            - 'tsconfig*.json'
+            - 'babel.config.js'
+            - 'eslint.config.*'
+            - 'jest*.js'
+            - 'jest*.mjs'
+            - 'jest*.ts'
+            - 'react-native.config.js'
+            - '.nvmrc'
+            - '.github/actions/**'
+            - '.github/ci/**'
+            - '.github/workflows/ci.yml'
+          example:
+            - 'example/**'
+            - '!example/ios/**'
+            - '!example/android/**'
+            - '!example/Gemfile'
+            - '!example/Gemfile.lock'
+            - '!example/package.json'
+            - '!**/*.md'
+            - '!**/*.mdx'
+          tooling:
+            - '!**/*.md'
+            - '!**/*.mdx'
+            - 'scripts/**'
+            - '.github/workflows/**'
+            - 'eslint.config.*'
+            - 'jest*.js'
+            - 'jest*.mjs'
+            - 'jest*.ts'
+          instructions:
+            - '.github/actions/**'
+            - 'AGENTS.md'
+            - 'CLAUDE.md'
+            - 'README.md'
+            - 'CONTRIBUTING.md'
+            - 'example/README.md'
+            - 'example/INTEGRATION.md'
+            - 'website/docs/**'
+            - 'package.json'
+            - 'scripts/verify-agent-instructions.mjs'
+    - name: Compare package runtime fields
+      id: manifest
+      if: steps.paths.outputs.manifest == 'true'
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/classify-package.cjs"

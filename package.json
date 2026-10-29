@@ -1,0 +1,204 @@
+{
+  "name": "@unif/react-native-logger",
+  "version": "0.1.0",
+  "description": "Unif React Native 结构化日志、脱敏与本地文件诊断",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "unif-react-native-logger-source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./runtime": {
+      "unif-react-native-logger-source": "./src/runtime/index.ts",
+      "types": "./lib/typescript/src/runtime/index.d.ts",
+      "default": "./lib/module/runtime/index.js"
+    },
+    "./files": {
+      "unif-react-native-logger-source": {
+        "browser": "./src/files/index.web.ts",
+        "default": "./src/files/index.ts"
+      },
+      "types": "./lib/typescript/src/files/index.d.ts",
+      "browser": "./lib/module/files/index.web.js",
+      "default": "./lib/module/files/index.js"
+    },
+    "./normalization": {
+      "unif-react-native-logger-source": "./src/normalization/index.ts",
+      "types": "./lib/typescript/src/normalization/index.d.ts",
+      "default": "./lib/module/normalization/index.js"
+    },
+    "./package.json": "./package.json",
+    "./backend": {
+      "unif-react-native-logger-source": "./src/backend/index.ts",
+      "types": "./lib/typescript/src/backend/index.d.ts",
+      "default": "./lib/module/backend/index.js"
+    },
+    "./files/web": {
+      "unif-react-native-logger-source": "./src/files/index.web.ts",
+      "types": "./lib/typescript/src/files/index.web.d.ts",
+      "default": "./lib/module/files/index.web.js"
+    }
+  },
+  "files": [
+    "src",
+    "lib",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__",
+    "!**/.*",
+    "NOTICE",
+    "docs/FORMAT.md"
+  ],
+  "scripts": {
+    "example": "yarn workspace @unif/react-native-logger-example",
+    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "prepare": "bob build",
+    "typecheck": "tsc --noEmit && node scripts/check-entrypoints.cjs",
+    "test": "jest --config jest.config.cjs --watchman=false",
+    "lint": "eslint \"**/*.{js,ts,tsx}\" scripts/check-entrypoints.cjs jest.config.cjs --max-warnings=0",
+    "release": "release-it --only-version",
+    "build": "bob build",
+    "check": "yarn typecheck && yarn test && yarn build",
+    "format:check": "prettier --check src __tests__ example/App.tsx",
+    "check:entries": "node scripts/check-entrypoints.cjs"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unif-design/react-native-logger.git"
+  },
+  "author": "unif-design",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/unif-design/react-native-logger/issues"
+  },
+  "homepage": "https://github.com/unif-design/react-native-logger#readme",
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@callstack/liquid-glass": "0.8.2",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@eslint/compat": "^2.1.0",
+    "@eslint/eslintrc": "^3.3.6",
+    "@eslint/js": "^9.39.5",
+    "@jest/globals": "^30.5.2",
+    "@react-native/babel-preset": "0.88.1",
+    "@react-native/eslint-config": "0.88.1",
+    "@react-native/jest-preset": "0.88.1",
+    "@react-native/metro-config": "0.88.1",
+    "@release-it/conventional-changelog": "^12.0.0",
+    "@types/crypto-js": "^4.2.2",
+    "@types/jest": "^30.0.0",
+    "@types/lodash": "^4.17.27",
+    "@types/node": "26.6.6",
+    "@types/react": "~19.3.0",
+    "@unif/react-native-design": "^1.13.5",
+    "@unif/react-native-icons": "^0.5.3",
+    "commitlint": "^21.2.1",
+    "del-cli": "^7.0.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-ft-flow": "^3.0.11",
+    "eslint-plugin-prettier": "^5.5.6",
+    "hermes-eslint": "0.37.0",
+    "jest": "^30.5.2",
+    "lefthook": "^2.1.10",
+    "prettier": "^3.9.6",
+    "react": "19.3.1",
+    "react-native": "0.88.1",
+    "react-native-blob-util": "^0.25.1",
+    "react-native-builder-bob": "^0.43.1",
+    "react-native-gesture-handler": "^3.4.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-reanimated-carousel": "^5.2.0",
+    "react-native-safe-area-context": "^5.10.1",
+    "react-native-svg": "^15.16.0",
+    "react-native-worklets": "0.13.0",
+    "release-it": "^21.0.1",
+    "turbo": "^2.10.8",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-native": ">=0.88.0",
+    "react-native-blob-util": "^0.25.1"
+  },
+  "workspaces": [
+    "example"
+  ],
+  "packageManager": "yarn@4.11.0",
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "prettier": {
+    "quoteProps": "consistent",
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "all",
+    "useTabs": false
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: 发布 ${version} [skip ci]",
+      "tagName": "v${version}"
+    },
+    "npm": {
+      "publish": true,
+      "skipChecks": true
+    },
+    "github": {
+      "release": true
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "preset": {
+          "name": "angular"
+        }
+      }
+    }
+  },
+  "create-react-native-library": {
+    "type": "library",
+    "languages": "js",
+    "tools": [
+      "jest",
+      "eslint",
+      "lefthook",
+      "release-it"
+    ],
+    "version": "0.63.1"
+  },
+  "private": true,
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "lodash": "^4.18.1"
+  },
+  "resolutions": {
+    "@react-native/eslint-config/eslint-plugin-ft-flow": "3.0.11"
+  }
+}

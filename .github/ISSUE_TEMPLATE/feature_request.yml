@@ -1,0 +1,65 @@
+# 目标路径:.github/ISSUE_TEMPLATE/feature_request.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 这是「基础版」。占位符:react-native-logger → repo 名。
+# sync-repo.sh 仅在目标仓【不存在】 feature_request.yml 时创建,不覆盖已有的
+# (各仓可写 repo 特化的字段 / 示例,如 camera 的相机 API 示例)。
+name: ✨ Feature request
+description: 已有具体 scope 的功能需求 / API 改进。**模糊 idea 请先开 Discussion 讨论。**
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # Feature request
+
+        👋 Hi!
+
+        这个 template 用于**已经想清楚 scope 的 feature**(具体哪个模块、要加什么 API、怎么用)。
+
+        如果还是模糊 idea / 想征求意见,请走 [Discussion](https://github.com/unif-design/react-native-logger/discussions/new?category=ideas) 先讨论。
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 动机
+      description: 你想解决什么问题?现在的 workaround 是什么?为什么 workaround 不够?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 具体提议
+      description: 想加什么 API?props / 方法名称 / 类型?用法示例?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的备选
+      description: 有没有其他方案?(可选)
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      description: 这个 feature 会破坏现有 API 吗?
+      options:
+        - 完全向后兼容(只加新 API)
+        - 修改默认行为(可能影响现有用法)
+        - Breaking change(major bump)
+      default: 0
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: 我搜过 existing issues + discussions
+          required: true
+        - label: 这是个**具体可实施**的需求(不是模糊 idea)
+          required: true
+        - label: 我已经看过 [AUTOMATION.md](https://github.com/unif-design/.github/blob/main/AUTOMATION.md) 的发版流程
+          required: false

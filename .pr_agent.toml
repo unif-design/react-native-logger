@@ -1,0 +1,21 @@
+# 目标路径:.pr_agent.toml(仓库根)
+# 由 unif-design/.github 的 templates/ 同步而来 —— 这是「基础版」。
+# sync-repo.sh 仅在目标仓【不存在】 .pr_agent.toml 时创建,不覆盖已有的
+# (各仓的 repo 特化 review 规则,如 design 的 useThemedStyles / camera 的 vision-camera API
+#  / umeng 的 TurboModule+PIPL,都写在 pr_reviewer.extra_instructions 里,sync 不动它)。
+#
+# 组织级通用 prompt 在 unif-design/.github 的 .github/workflows/pr-agent.yml 里,
+# 本文件只补本仓特有规则,PR-Agent 会自动 merge 两者。
+
+[pr_reviewer]
+extra_instructions = """
+用中文 code review。除了 org 级通用规则,本仓库特有规则:
+- (在此补充本仓特有的 review 关注点,如组件 / 原生 API / 平台约束等)
+- 必须 conventional commits 前缀(feat / fix / chore / docs / test / refactor / ci)
+"""
+
+[pr_code_suggestions]
+extra_instructions = "用中文,引用具体行号,给可落地的代码改进(不要给\"考虑重构\"这种空泛建议)。"
+
+[pr_description]
+extra_instructions = "用中文,1-2 句概括 + 列变更点。如果有 BREAKING CHANGE 必须在 body 显式标注。"

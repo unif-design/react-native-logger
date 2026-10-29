@@ -1,0 +1,75 @@
+# 目标路径:lefthook.yml(仓库根)
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 本地 git hook:pre-commit 跑 branch-guard + eslint + tsc(+ native 仓的 clang-format / ktlint),
+# commit-msg 跑 commitlint + no-ai-trailer。
+#
+# **这两条守卫刻意放在 git hook 而不是某个 agent 的配置里** —— git hook 对人、对任何
+# AI agent、对任何 IDE 一视同仁;写在 `.claude/settings.json` 之类的地方只能约束一种工具。
+pre-commit:
+  parallel: true
+  commands:
+
+    # 分支纪律:不在 main / master 上直接提交。
+    # 并行的另一个会话把 main 重置到 origin 时,你未提交的改动会无声消失、已提交的会从
+    # main 上掉下来 —— 这真实发生过。分支必须在**首次写入之前**就建好,这条只是最后兜底。
+    branch-guard:
+      run: |
+        # CI 放行:release-it 的版本 commit 就打在 main 上,而 lefthook 的 postinstall
+        # 会在 CI 装依赖时把 hook 一并装好 —— 不豁免则每次自动发版都卡在 git commit。
+        # 这不是给守卫开后门:main 由 ruleset 保护(必须走 PR,只有 release bot 在
+        # bypass list),CI 里根本不存在「人在 main 上写代码」这个场景。
+        if [ -n "$CI" ]; then exit 0; fi
+        # symbolic-ref 而非 rev-parse --abbrev-ref:空仓(还没有 commit)时后者返回
+        # 字面量 "HEAD" 而不是分支名,守卫会静默失效。detached HEAD(rebase / bisect
+        # 中间态)拿不到分支名,直接放行 —— 那些场景本来就不是「在 main 上写代码」。
+        branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+        case "$branch" in
+          main|master)
+            echo "✗ 当前在 $branch 上,不要直接提交。"
+            echo "  先开分支:git checkout -b <type>/<topic>"
+            echo "  已经改了也不怕:git stash && git checkout -b <type>/<topic> && git stash pop"
+            exit 1
+            ;;
+        esac
+
+    lint:
+      glob: "*.{js,ts,jsx,tsx}"
+      run: npx eslint {staged_files}
+
+    types:
+      glob: "*.{js,ts,jsx,tsx}"
+      run: npx tsc
+
+    # ── native 格式化(只在 native 仓的 *.mm/*.kt 被 stage 时触发;非 native 仓 glob 不命中,惰性无害)──
+    # 工具没装时 `command -v` 兜底跳过(只警告不卡 commit)—— CI 的 native-lint 才是硬 gate。
+    # 注意:本地工具版本最好对齐 CI(clang-format 18 / ktlint 1.8.0),否则本地格式化后 CI 仍可能红。
+    # 本最小 .clang-format(LLVM/2/120)跨版本输出一致,brew clang-format(新版)够用。
+    clang-format:
+      glob: "*.{h,hpp,cpp,cc,c,m,mm}"
+      stage_fixed: true
+      run: command -v clang-format >/dev/null 2>&1 && clang-format -i {staged_files} || echo "⚠ clang-format 未装(brew install clang-format),跳过本地格式化;CI 会检查"
+
+    ktlint:
+      glob: "*.{kt,kts}"
+      stage_fixed: true
+      run: command -v ktlint >/dev/null 2>&1 && ktlint -F {staged_files} || echo "⚠ ktlint 未装(brew install ktlint),跳过本地格式化;CI 会检查"
+
+commit-msg:
+  parallel: true
+  commands:
+    commitlint:
+      run: npx commitlint --edit
+
+    # commit message 一律不带 AI 尾注。各家 agent 默认会加自己的署名,而仓库的 commit
+    # 历史是给人读的工程记录 —— 谁写的不重要,为什么这么改才重要。
+    # Claude Code 那侧另有 `.claude/settings.json` 的 attribution 置空,但那只管一种工具,
+    # 这条才是对所有工具生效的那道。
+    no-ai-trailer:
+      run: |
+        msg_file="{1}"
+        [ -f "$msg_file" ] || msg_file="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
+        if grep -qiE 'Claude-Session|Co-Authored-By:[[:space:]]*Claude|Generated with \[?Claude|🤖 Generated' "$msg_file"; then
+          echo "✗ commit message 带了 AI 尾注,请删掉后重试。"
+          echo "  仓库约定:commit 历史只记「为什么这么改」,不记谁写的。"
+          exit 1
+        fi

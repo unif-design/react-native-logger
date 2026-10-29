@@ -1,0 +1,213 @@
+# 目标路径:.github/workflows/release.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+#
+# 占位符(sync-repo.sh 替换):
+#   react-native-logger      → repo 名(如 react-native-design)
+#   下方 on.push.paths 里的 RELEASE_PATHS 标记由脚本按目标仓有无 *.podspec 注入:
+#   native 仓(有 *.podspec)含 src/ios/android/podspec,纯 JS 仓含 src/scripts。
+#   故意不含 package.json/yarn.lock —— 加 website workspace / 升依赖会连带改根 package.json+yarn.lock,
+#   纯 docs/website/依赖变更不该触发发版;要发依赖升级版走手动 workflow_dispatch。
+name: Release
+
+# 手动触发的发版工作流 —— 在 GitHub Actions 页面点 "Run workflow" 选版本类型即可。
+# 内部跑 `release-it --ci`:bump 版本号 → 生成 changelog → git commit + tag →
+# `npm publish`(走 npm Trusted Publishing / OIDC)→ 创建 GitHub Release。
+#
+# 两套凭据,各管一段:
+#   1. npm publish —— Trusted Publishing / OIDC(id-token: write),无 long-lived token。
+#      前置:npmjs.com 包 Settings → Trusted Publishers 绑 unif-design/react-native-logger 的 release.yml。
+#   2. git push commit + tag 回 main —— 自建 App bot 的临时 token。
+#      main 受 `protect main` ruleset 保护(必须走 PR),而 github-actions[bot] 加不进 ruleset
+#      bypass(它不是"安装的 App")。所以用 GitHub App `unif-release-bot` 生成 ~1h 过期的
+#      installation token 替代 GITHUB_TOKEN,该 App 加进 ruleset bypass list → release-it 的
+#      `chore: release X.Y.Z` commit 能合法推回受保护的 main。
+#      前置:repo variable RELEASE_APP_ID + secret RELEASE_APP_PRIVATE_KEY + App 进 bypass list。
+#
+# 防自触发死循环(关键):release-it 推回 main 的 release commit 改了 package.json,会命中下面
+# 的 paths 再次触发本工作流 → 无限发版。两道防线:
+#   1. release commit message 带 [skip ci](见 package.json#release-it.git.commitMessage)→ push 被 Actions 跳过。
+#   2. 下面 job 级 if 兜底:push 上来的若是 "chore: release" commit 直接 skip(防 [skip ci] 万一失效)。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # 只在库源码改动时触发;改 docs / website / 依赖锁 / example / CI 配置不触发发版。
+      # 不含 package.json/yarn.lock —— website workspace 登记 + 依赖升级都改它们,不该触发 release。
+      # release-it 看 conventional commits 决定要不要发 + bump,这层 paths 只是省 CI、不是行为兜底。
+      - 'src/**'
+      - 'scripts/**'
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: '版本类型(auto = 走 conventional commits 自动推断)'
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+concurrency:
+  # 同一时间只允许一个发版 run —— 防并发 release-it 互撞 tag/push,
+  # 兼作死循环的第三道防线。cancel-in-progress: false —— 发版跑到一半不能打断。
+  # group 用 ${{ github.workflow }}(=本 workflow 名,唯一)而非静态串,避免跟别的 workflow 撞同名并发组。
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+# workflow 级零授权 —— 权限收窄到真正需要的 release job(显式最小权限边界)。
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write     # 兜底;实际 push 走下面的 App token(GITHUB_TOKEN 进不了受保护 main)
+      id-token: write     # npm Trusted Publishing(OIDC)+ provenance attestations
+      actions: write      # 发版后 gh workflow run dispatch deploy-docs(workflow_dispatch 是 GITHUB_TOKEN 防递归的例外)
+    # 兜底防自触发循环:push 上来的若是 release-it 自己推的 "chore: release" commit 直接 skip。
+    # 主防线是该 commit 带 [skip ci](push 会被 Actions 跳过);这里是第二道,防 [skip ci] 失效。
+    # workflow_dispatch 无 head_commit,前半条件 true 短路 → 手动发版照常,不受影响。
+    if: "${{ github.event_name == 'workflow_dispatch' || !startsWith(github.event.head_commit.message, 'chore: release') }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      # 生成 App bot 临时 token —— 替代 GITHUB_TOKEN,使后续 git push 能 bypass `protect main`。
+      # token scope 自动限定到本 repo,权限继承 App(Contents: write),~1h 过期。
+      - name: Generate App token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0                                # release-it 要全历史算 conventional-changelog
+          token: ${{ steps.app-token.outputs.token }}   # 用 App token,后续 git push 才能 bypass ruleset
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # npm Trusted Publishing 需要 npm CLI ≥ 11.5.1;.nvmrc 的 node 自带的 npm 未必够新,故在此抬一手。
+      #
+      # **不要写 npm@latest** —— npm 的 engines 下限会先于我们 .nvmrc 里钉死的 node 版本往前跳,
+      # 一跳就是全组织发版同时断。2026-07-14 实测:npm@latest 滚到 12.0.1,engines 要求
+      # node ^22.22.2 || ^24.15.0 || >=26,而 runner 按 .nvmrc 装的是 node 24.13.0 →
+      # `npm i -g npm@latest` 直接 EBADENGINE/notsup 挂掉,五个仓的 release 全灭。
+      # (且那次根本不需要升:node 24.13 自带 npm 11.6.2,早就过了 11.5.1 这条线。)
+      #
+      # 锁在 11.x:既保住 OIDC 下限,又不追 npm 的 engines 漂移。将来 Trusted Publishing 真要
+      # npm ≥ 12 了,再把 .nvmrc 的 node 一起抬上去、同批改这里。
+      - name: Upgrade npm CLI (required for OIDC)
+        run: npm install -g "npm@^11"
+
+      - name: Verify
+        run: |
+          yarn lint
+          yarn typecheck
+          yarn test --maxWorkers=2
+
+      # commit author 用 App bot 身份(release commit 显示 verified + 归属 unif-release-bot[bot])。
+      # bot 的 numeric user id 用 app-slug 反查,拼成 GitHub no-reply 邮箱。
+      - name: Resolve App bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # 经 env 传入,不把 ${{ }} 直接插值进 run 脚本 —— GitHub 官方防 shell 注入最佳实践
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          uid=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${uid}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git
+        env:
+          BOT_NAME: ${{ steps.bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.bot.outputs.email }}
+        run: |
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
+
+      # npm CLI 在 GitHub Actions OIDC 环境下(id-token: write + 包配过 Trusted Publisher)
+      # 自动用临时 token publish,不需要写 ~/.npmrc。
+      # GITHUB_TOKEN 这里换成 App token —— release-it 的 git push(commit + tag)和建 GitHub Release 都走它。
+      # INCREMENT 空 → release-it 根据 conventional-changelog 插件推断 bump;
+      # 非空 → 走 workflow_dispatch 强制指定的 patch / minor / major。
+      # CI 自动发版只允许 minor 与 patch —— major 必须由人确认后手动 dispatch。
+      # 起因:react-native-camera 被 push 触发的 auto 推断从 3.0.5 自动发成了 4.0.0,
+      # 一个破坏性版本就这么出去了,事先没有任何人点头。conventional commits 的
+      # `BREAKING CHANGE:` footer 足以让 release-it 判出 major,但「该不该现在发 major」
+      # 是产品决定,不该由一条 commit message 单独拍板。
+      #
+      # 拦下时**报红而不是静默跳过** —— 静默跳过会让一个该发 major 的改动悄悄没发出去,
+      # 比误发更难发现。报错信息里直接给出手动发版的命令。
+      # workflow_dispatch 一律放行(含显式选 major):人点了按钮就是同意。
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          INCREMENT: ${{ inputs.increment || 'auto' }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          # 手动 dispatch 指定了级别 = owner 已同意,任何级别都放行。
+          if [ "$INCREMENT" != "auto" ]; then
+            npx release-it "$INCREMENT" --ci
+            exit 0
+          fi
+
+          CURRENT="$(node -p "require('./package.json').version")"
+          # --release-version 只打印将要发布的版本号,不发布。距上次 tag 没有可发布的 commit
+          # 时它以非零码退出且不打印版本 —— `|| true` 吃掉的正是这种正常情况,别让它把整步
+          # 拖挂;`a | b || c` 里 `||` 结合的是整条管道,所以 pipefail 下 npx 自己挂掉也被兜住。
+          NEXT="$(npx release-it --release-version --ci 2>/dev/null | tail -1 || true)"
+
+          # 算不出下一个版本 —— 不在这里报错,交给 release-it 自己判断(它会得出同一个
+          # 结论:无可发布的 commit,跳过)。
+          if [ -z "$NEXT" ]; then
+            npx release-it --ci
+            exit 0
+          fi
+
+          if [ "$EVENT_NAME" = "push" ]; then
+            # 拿到了输出却不是 x.y.z 形状,说明 --release-version 的输出形态变了,闸门此时
+            # 判不出是不是 major。宁可停下来让人看一眼,也不放一个可能的 major 出去。
+            case "$NEXT" in
+              [0-9]*.[0-9]*.[0-9]*) ;;
+              *)
+                echo "::error::无法解析下一个版本号,拒绝自动发布:${NEXT}"
+                echo "release-it --release-version 的输出不是 x.y.z,major 闸门无法判定。"
+                exit 1
+                ;;
+            esac
+
+            if [ "${CURRENT%%.*}" != "${NEXT%%.*}" ]; then
+              echo "::error::拒绝自动发布 major:${CURRENT} → ${NEXT}"
+              echo "CI 自动发版只允许 minor 与 patch。这次推断出的是 major,需要 owner 确认。"
+              echo "确认后手动发布:"
+              echo "  gh workflow run release.yml --ref main -f increment=major"
+              echo "或在 Actions 页面用 workflow_dispatch 选 major。"
+              exit 1
+            fi
+          fi
+
+          npx release-it --ci
+
+      # 发版成功后显式触发文档部署 —— dispatch 跑 main。
+      # 不靠 deploy-docs 监听 release event:release 事件的 ref 是 tag(v*),而 GitHub Pages
+      # environment 的部署分支策略只放行 main → tag 上的 deploy job 必被拒(实测 [release] 触发的
+      # deploy 在 v0.3.0 上 failure)。workflow_dispatch 跑 main 绕开,且它是 GITHUB_TOKEN 防自触发
+      # 递归的例外(能触发新 run)。非 website 仓无此 workflow,容错跳过、不让发版失败。
+      - name: Trigger docs deploy
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh workflow run deploy-docs.yml --ref main 2>/dev/null; then
+            echo "✓ 已 dispatch deploy-docs(main)"
+          else
+            echo "无 deploy-docs.yml(非 website 仓)或 dispatch 失败,跳过"
+          fi

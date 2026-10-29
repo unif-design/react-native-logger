@@ -1,0 +1,29 @@
+name: Setup
+description: Setup Node.js and install dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version-file: .nvmrc
+
+    - name: Resolve Yarn package cache
+      id: yarn-cache-dir
+      run: |
+        YARN_CACHE_DIR=$(yarn config get cacheFolder)
+        printf 'path=%s\n' "$YARN_CACHE_DIR" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Cache Yarn packages
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ steps.yarn-cache-dir.outputs.path }}
+        key: ${{ runner.os }}-yarn-packages-${{ hashFiles('yarn.lock', '.yarnrc.yml', '.yarn/releases/**') }}
+        restore-keys: |
+          ${{ runner.os }}-yarn-packages-
+
+    - name: Install dependencies
+      run: yarn install --immutable
+      shell: bash

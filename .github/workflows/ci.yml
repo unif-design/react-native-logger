@@ -1,0 +1,329 @@
+# 目标路径:.github/workflows/ci.yml
+# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 改 CI 标准请改 .github/templates/workflows/ci.yml 再 sync-repo.sh 下发,不要直接改本文件。
+#
+# 这是「四仓最优并集」:
+#   - actionlint 显式 -shellcheck=shellcheck 加固(camera 写法)
+#   - changes 复用共享路径规则，按平台和实际运行输入选择验证
+#   - build-android distribution: temurin(design,避 zulu/Azul CDN 偶发 520)
+#   - build-ios macos-26 + Xcode 26.5 + RCT_USE_PREBUILT_RNCORE(umeng/hms-scan)
+#   - setup-xcode pin v1.6.0 + macos-26(umeng/hms-scan 真实在跑的组合)
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  merge_group:
+    types:
+      - checks_requested
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read    # CI 只读代码;无任何写需求,最小权限
+
+jobs:
+  actionlint:
+    needs: changes
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require change classification
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+        run: test "$CHANGES_RESULT" = success
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Test verification decisions
+        run: node --test .github/actions/verification/verification.test.cjs
+      - name: Run actionlint
+        # 下载 pinned binary 校验所有 workflow 的 YAML / 表达式 / run 里的 shell。
+        # release.yml 那次 YAML 引号 bug 当初就是缺这道 lint 才漏到 main 的。
+        # ubuntu-latest 预装 shellcheck;actionlint 默认自动集成它检查 run: 脚本(SC2086 等)。
+        # 显式断言 shellcheck 存在 + 传 -shellcheck=shellcheck,防 runner 未来变更导致 shell 检查静默降级。
+        run: |
+          ACTIONLINT_VERSION=1.7.12
+          curl -sSfL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | tar -xz actionlint
+          shellcheck --version
+          ./actionlint -color -shellcheck=shellcheck
+        shell: bash
+
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      reused: ${{ steps.verification.outputs.reused }}
+      has_website: ${{ steps.scope.outputs.has_website }}
+      js: ${{ steps.scope.outputs.js }}
+      android: ${{ steps.scope.outputs.android }}
+      ios: ${{ steps.scope.outputs.ios }}
+      shared: ${{ steps.scope.outputs.shared }}
+      website: ${{ steps.scope.outputs.website }}
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Check completed PR verification
+        id: verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/actions/verification/verification.cjs plan
+      - name: Select affected checks
+        id: scope
+        if: steps.verification.outputs.reused != 'true'
+        uses: ./.github/actions/changes
+
+  verified:
+    runs-on: ubuntu-latest
+    needs: [changes, actionlint, lint, test, website, build-library, build-android, build-ios]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Verify completed checks
+        env:
+          CI_CHECK_RESULTS: ${{ toJSON(needs) }}
+        run: node .github/actions/verification/verification.cjs record
+      - name: Save PR verification receipt
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-verification-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-verification/verified.json
+          if-no-files-found: error
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Lint files
+        run: yarn lint
+
+      - name: Typecheck files
+        run: yarn typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run unit tests
+        run: yarn test --maxWorkers=2 --coverage
+
+  website:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.website == 'true' && needs.changes.outputs.has_website == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Resolve website workspace
+        id: website
+        run: |
+          WEBSITE_WORKSPACE=$(node -p "require('./website/package.json').name")
+          printf 'name=%s\n' "$WEBSITE_WORKSPACE" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Test llms builder
+        run: node website/scripts/build-llms.test.js
+
+      - name: Typecheck website
+        env:
+          WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}
+        run: yarn workspace "$WEBSITE_WORKSPACE" typecheck
+
+      - name: Build website
+        env:
+          WEBSITE_WORKSPACE: ${{ steps.website.outputs.name }}
+        run: yarn workspace "$WEBSITE_WORKSPACE" build
+
+  build-library:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.js == 'true' || needs.changes.outputs.shared == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build package
+        run: yarn prepare
+
+  build-android:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.android == 'true' || needs.changes.outputs.js == 'true' || needs.changes.outputs.shared == 'true'
+
+    env:
+      TURBO_CACHE_DIR: .turbo/android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Cache turborepo for Android
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-android-${{ hashFiles('yarn.lock') }}-
+            ${{ runner.os }}-turborepo-android-
+
+      - name: Check turborepo cache for Android
+        run: |
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:android').cache.status")
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install JDK
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/android.sh') != ''
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          # temurin:ubuntu runner toolcache 预装 JDK 17,setup-java 本地命中、
+          # 不走远端下载,避开 zulu(Azul CDN)偶发 520(error code: 520)。
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Finalize Android SDK
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/android.sh') != ''
+        run: |
+          /bin/bash -c "yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null"
+
+      - name: Cache Gradle
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/android.sh') != ''
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('example/android/gradle/wrapper/gradle-wrapper.properties') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-${{ hashFiles('example/android/gradle/wrapper/gradle-wrapper.properties') }}-
+            ${{ runner.os }}-gradle-
+
+      - name: Build example for Android
+        env:
+          JAVA_OPTS: "-XX:MaxHeapSize=6g"
+        run: |
+          yarn turbo run build:android --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
+      - name: Verify Android integration
+        if: hashFiles('.github/ci/android.sh') != ''
+        run: bash .github/ci/android.sh
+
+  build-ios:
+    runs-on: macos-26
+    needs: changes
+    if: needs.changes.outputs.ios == 'true' || needs.changes.outputs.js == 'true' || needs.changes.outputs.shared == 'true'
+
+    env:
+      # macos-26 runner(2026-02-26 GA)装了 Xcode 26.5;26.5 修好了 26.3 上
+      # ReactCodegen .cpp 报 'memory' file not found 的 stdlib include path 问题
+      # (本地 Xcode 26.5 验证过 prebuilt 能过)。换 macos-26 + 显式 pin 26.5
+      # (镜像默认 26.4.1,未验证不用),按官方模板默认开 prebuilt 走预编译
+      # React.xcframework,省掉源码编译的 5-10 分钟。Podfile 用官方原版即可,
+      # 26.5 上不再需要 #56862 umbrella/modulemap patch。
+      # TODO: 待 GitHub 把 macos-latest 滚到 26,可改回 macos-latest +
+      # XCODE_VERSION 26,与 create-react-native-library 模板完全一致。
+      XCODE_VERSION: "26.5"
+      TURBO_CACHE_DIR: .turbo/ios
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Cache turborepo for iOS
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ${{ env.TURBO_CACHE_DIR }}
+          key: ${{ runner.os }}-turborepo-ios-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turborepo-ios-${{ hashFiles('yarn.lock') }}-
+            ${{ runner.os }}-turborepo-ios-
+
+      - name: Check turborepo cache for iOS
+        run: |
+          TURBO_CACHE_STATUS=$(node -p "($(yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}" --dry=json)).tasks.find(t => t.task === 'build:ios').cache.status")
+
+          if [[ $TURBO_CACHE_STATUS == "HIT" ]]; then
+            echo "turbo_cache_hit=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Use appropriate Xcode version
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/ios.sh') != ''
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Cache iOS dependency downloads
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/ios.sh') != ''
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            example/vendor/bundle
+            ~/Library/Caches/CocoaPods
+            ~/Library/Caches/ReactNative
+          key: ${{ runner.os }}-${{ runner.arch }}-ios-deps-v1-${{ hashFiles('yarn.lock', 'example/Gemfile.lock', 'example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ios-deps-v1-
+
+      - name: Install cocoapods
+        if: env.turbo_cache_hit != 1 || hashFiles('.github/ci/ios.sh') != ''
+        run: |
+          cd example
+          bundle install --jobs 3 --retry 2
+          bundle exec pod repo update --verbose
+          bundle exec pod install --project-directory=ios
+
+      - name: Build example for iOS
+        run: |
+          sysctl hw.ncpu hw.memsize
+          /usr/bin/time -l yarn turbo run build:ios --cache-dir="${{ env.TURBO_CACHE_DIR }}"
+
+      - name: Verify iOS integration
+        if: hashFiles('.github/ci/ios.sh') != ''
+        run: bash .github/ci/ios.sh
