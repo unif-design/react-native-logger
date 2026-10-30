@@ -82,6 +82,8 @@ export async function readDiagnostics(logging: LoggingHandle) {
 
 ## 文件交接
 
+下例要求 `shareFile` 在接收方完成文件读取后才结束 Promise。如果平台分享接口只表示已打开分享面板，应由接收方的完成通知触发释放，不能直接套用下面的 `finally` 时机。
+
 ```ts
 import type { LoggingHandle } from '@unif/react-native-logger';
 
