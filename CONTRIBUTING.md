@@ -1,128 +1,35 @@
-# Contributing
+# 参与开发
 
-Contributions are always welcome, no matter how large or small!
+本仓使用 Yarn workspaces，包含日志库、`example/` 原生应用与 `website/` 文档站。先阅读[开发资料](docs/DEVELOPMENT.md)和[输出格式契约](docs/FORMAT.md)。交流遵循[行为准则](CODE_OF_CONDUCT.md)，安全问题使用[安全报告入口](SECURITY.md)。
 
-We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
+## 开发与检查
 
-## Development workflow
-
-This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:
-
-- The library package in the root directory.
-- An example app in the `example/` directory.
-
-To get started with the project, make sure you have the correct version of [Node.js](https://nodejs.org/) installed. See the [`.nvmrc`](./.nvmrc) file for the version used in this project.
-
-Run `yarn` in the root directory to install the required dependencies for each package:
+使用 `.nvmrc` 与 `package.json` 指定的 Node／Yarn，在仓库根目录执行：
 
 ```sh
-yarn
-```
-
-> Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development without manually migrating.
-
-The [example app](/example/) demonstrates usage of the library. You need to run it to test any changes you make.
-
-It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
-
-You can use various commands from the root directory to work with the project.
-
-To start the packager:
-
-```sh
-yarn example start
-```
-
-To run the example app on Android:
-
-```sh
-yarn example android
-```
-
-To run the example app on iOS:
-
-```sh
-yarn example ios
-```
-
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
-
-```sh
-Running "ReactNativeLoggerExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
-
-Make sure your code passes TypeScript:
-
-```sh
-yarn typecheck
-```
-
-To check for linting errors, run the following:
-
-```sh
+yarn install --immutable
 yarn lint
+yarn typecheck
+yarn test --runInBand
+yarn build
+yarn example typecheck
+yarn website typecheck
+node website/scripts/build-llms.test.js
+yarn website build
 ```
 
-To fix formatting errors, run the following:
+公开接口位于包根和 `/files`。修改时同步类型、示例和文档，保留脱敏、身份隔离、队列限制及快照释放契约。根入口不应加载原生文件 SDK，组件库只记录日志，由应用统一安装运行时。
 
-```sh
-yarn lint --fix
-```
+文档源位于 `docs/`，网站与 LLM 资料共用这批 Markdown；生成器由组织标准维护，修改文档后重新构建，不手改生成结果。
 
-Remember to add tests for your change if possible. Run the unit tests by:
+## 原生示例
 
-```sh
-yarn test
-```
+[`example/App.tsx`](example/App.tsx) 使用当前库公开入口，展示记录、快照读取和清理。执行这些操作会写入或删除示例应用自己的日志。
 
+从仓库根目录运行 `yarn example start`，另开终端运行 `yarn example android` 或 `yarn example ios`。iOS 首次接入或原生依赖更新后，先在 `example/` 执行 `bundle install` 和 `bundle exec pod install --project-directory=ios`。
 
-### Commit message convention
+外部文件 SDK 的替身测试不证明实际落盘。按变更影响分别检查 JS 打包、原生构建、身份切换、文件写入和快照交接；设备与真实业务验收单独记录。
 
-We follow the [conventional commits specification](https://www.conventionalcommits.org/en) for our commit messages:
+## 提交与交付
 
-- `fix`: bug fixes, e.g. fix crash due to deprecated method.
-- `feat`: new features, e.g. add new method to the module.
-- `refactor`: code refactor, e.g. migrate from class components to hooks.
-- `docs`: changes into documentation, e.g. add usage example for the module.
-- `test`: adding or updating tests, e.g. add integration tests using detox.
-- `chore`: tooling changes, e.g. change CI config.
-
-Our pre-commit hooks verify that your commit message matches this format when committing.
-
-
-### Publishing to npm
-
-We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
-
-To publish new versions, run the following:
-
-```sh
-yarn release
-```
-
-
-### Scripts
-
-The `package.json` file contains various scripts for common tasks:
-
-- `yarn`: setup project by installing dependencies.
-- `yarn typecheck`: type-check files with TypeScript.
-  - `yarn lint`: lint files with [ESLint](https://eslint.org/).
-    - `yarn test`: run unit tests with [Jest](https://jestjs.io/).
-  - `yarn example start`: start the Metro server for the example app.
-- `yarn example android`: run the example app on Android.
-- `yarn example ios`: run the example app on iOS.
-  
-### Sending a pull request
-
-> **Working on your first pull request?** You can learn how from this _free_ series: [How to Contribute to an Open Source Project on GitHub](https://app.egghead.io/playlists/how-to-contribute-to-an-open-source-project-on-github).
-
-When you're sending a pull request:
-
-- Prefer small pull requests focused on one change.
-- Verify that linters and tests are passing.
-- Review the documentation to make sure it looks good.
-- Follow the pull request template when opening a pull request.
-- For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
+调整公开 API 或既有实现行为前，先通过 issue 与维护者确认范围；已获授权的任务按确认范围执行。提交与 PR 标题、正文使用中文，保留 Conventional Commits 类型前缀。CI 与发布配置来自 `unif-design/.github`；正式发行遵循组织 PR、发布机器人和 npm Trusted Publisher 流程，具体操作以当前任务授权为准。保留许可与 [NOTICE](NOTICE) 中的上游署名。

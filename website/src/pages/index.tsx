@@ -13,12 +13,12 @@ export default function Home(): ReactNode {
         <section className="hp-hero logger-container">
           <span className="hp-eyebrow">Unif React Native</span>
           <h1 className="hp-title">
-            日志有上下文，
+            结构化记录，
             <br />
-            <span className="accent">诊断有边界。</span>
+            <span className="accent">按身份管理日志。</span>
           </h1>
           <p className="hp-tagline">
-            统一记录应用与组件库的事件，关联一次操作，在明确的身份与文件生命周期内交付诊断信息。
+            记录应用与组件库的事件，关联同一次操作，过滤敏感字段，并按当前身份生成诊断快照。
           </p>
           <div className="hp-cta-row">
             <Link className="hp-btn hp-btn-primary" to="/docs/quick-start">
@@ -62,8 +62,9 @@ log.warn('capture.unavailable', {
 });`}</code>
           </pre>
           <p>
-            iOS／Android 使用原生文件适配。Web 使用有界内存，原生效果通过仓库
-            example 验证。
+            iOS／Android 使用原生文件适配。Web
+            使用有界内存；原生文件写入、清理与分享需在仓库 example
+            和真实设备中验证。
           </p>
           <Link to="/docs/development">查看原生示例与研发入口 →</Link>
         </section>

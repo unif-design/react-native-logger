@@ -12,8 +12,8 @@
 
 - [ ] `feat` 新功能(会触发 minor 发版)
 - [ ] `fix` Bug 修复(会触发 patch 发版)
-- [ ] `refactor` / `chore` / `docs` / `test` / `ci`(不发版)
-- [ ] **包含 BREAKING CHANGE**(会触发 major 发版,在 commit body 写 `BREAKING CHANGE: ...`)
+- [ ] `refactor` / `chore` / `docs` / `test` / `ci`（是否发版取决于工作流触发范围和版本规则）
+- [ ] **包含 BREAKING CHANGE**（可能触发 major，须先取得明确授权，在 commit body 写 `BREAKING CHANGE: ...`）
 
 ## 验证
 

@@ -7,7 +7,7 @@ description: 安装依赖，初始化一套运行时，并接入身份和日志�
 
 ## 安装和平台
 
-正式版本发布后安装；已发布版本以 [npm](https://www.npmjs.com/package/@unif/react-native-logger) 为准。
+安装本库与原生文件依赖：
 
 ```sh
 npm install @unif/react-native-logger react-native-blob-util
