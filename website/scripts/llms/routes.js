@@ -1,4 +1,4 @@
-// 共用生成规则源：unif-design/.github/templates/llms。
+// 共用生成规则源：github-delivery/templates/llms。
 'use strict';
 
 const RESERVED_TARGETS = ['llms.txt', 'llms-full.txt', 'md', 'md/index.json'];

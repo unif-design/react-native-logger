@@ -1,0 +1,43 @@
+name: PR Agent (reusable)
+
+# 组织级 reusable workflow —— 任何 caller workflow 通过
+# `uses: ./.github/workflows/pr-agent-reusable.yml` 调用即可。
+#
+# caller repo 在自己根目录加 .pr_agent.toml 可以补项目特有 prompt。
+
+on:
+  workflow_call:
+    secrets:
+      DEEPSEEK_API_KEY:
+        required: true
+
+jobs:
+  pr_agent:
+    if: github.event.sender.type != 'Bot'  # 排除所有 bot 事件,避免循环
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: PR Agent
+        uses: qodo-ai/pr-agent@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # DeepSeek V3。换 R1 推理模型把 deepseek-chat 改成 deepseek-reasoner
+          CONFIG.MODEL: "deepseek/deepseek-chat"
+          CONFIG.FALLBACK_MODELS: '["deepseek/deepseek-chat"]'
+          DEEPSEEK.KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
+          # 自动行为
+          GITHUB_ACTION_CONFIG.AUTO_REVIEW: "true"     # 新 PR 自动 review
+          GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "true"   # 自动补 PR 描述
+          GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"   # 改进建议要手动 /improve
+
+          # 通用中文 prompt(项目特有规则放 caller repo 根目录的 .pr_agent.toml)
+          PR_REVIEWER.EXTRA_INSTRUCTIONS: |
+            用中文 code review,关注:
+            - TypeScript 类型安全 + strict 边界
+            - 性能(memoization、不必要的 re-render)
+            - 可访问性(accessibility props)
+            - 安全风险(XSS / injection / 暴露的 secret)
+          PR_CODE_SUGGESTIONS.EXTRA_INSTRUCTIONS: "用中文,引用具体行号,给可落地的改进。"
+          PR_DESCRIPTION.EXTRA_INSTRUCTIONS: "用中文,1-2 句概括 + 列变更点。"

@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { setTimeout: sleep } = require('node:timers/promises');
+const { readOrganization, validateIdentity } = require('./organization.cjs');
 
 const REGISTRY = 'https://registry.npmjs.org/';
 const MODES = ['source', 'pack', 'release', 'published'];
@@ -112,7 +113,12 @@ function exportGroups(pkg) {
 
 function validateManifest(pkg) {
   requireValue(record(pkg), 'package.json must contain an object');
-  requireValue(typeof pkg.name === 'string' && /^@unif\/react-native-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(pkg.name), 'package name must identify an @unif/react-native-* library');
+  const name = pkg.name;
+  const parts = typeof name === 'string' ? /^(?:@([^/]+)\/)?([^/]+)$/.exec(name) : null;
+  requireValue(parts && name.length <= 214 && name === name.toLowerCase()
+    && !/^[._-]/.test(name) && !parts[2].startsWith('.') && !/[~'!()*]/.test(parts[2])
+    && parts.slice(1).filter(Boolean).every(part => encodeURIComponent(part) === part)
+    && !['node_modules', 'favicon.ico'].includes(name), 'package name must be a valid npm package name');
   requireValue(typeof pkg.version === 'string' && VERSION.test(pkg.version), 'package version must be an exact semantic version');
   const prerelease = pkg.version.split('+')[0].split('-').slice(1).join('-');
   requireValue(prerelease.split('.').every(part => !/^0\d+$/.test(part)), 'package version has a leading-zero prerelease identifier');
@@ -291,6 +297,7 @@ async function checkLibrary(mode, directory = process.cwd(), options = {}) {
   const root = fs.realpathSync(directory);
   const pkg = readJson(root, 'package.json');
   validateManifest(pkg);
+  validateIdentity(readOrganization(root), pkg);
   const readme = readDocument(root, README, 'README').text;
   validateWebsite(root, pkg, false);
   const result = { mode, name: pkg.name, version: pkg.version };
@@ -300,7 +307,7 @@ async function checkLibrary(mode, directory = process.cwd(), options = {}) {
     return result;
   }
   const metadata = mode === 'published' ? await registryMetadata(pkg, options.fetch || globalThis.fetch, options.wait || sleep) : null;
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'unif-library-pack-'));
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'github-delivery-pack-'));
   try {
     const userconfig = path.join(temporary, 'user.npmrc');
     const globalconfig = path.join(temporary, 'global.npmrc');
@@ -308,7 +315,8 @@ async function checkLibrary(mode, directory = process.cwd(), options = {}) {
     fs.writeFileSync(globalconfig, '');
     const args = ['pack', metadata ? `${pkg.name}@${pkg.version}` : root, '--ignore-scripts', '--json',
       '--pack-destination', temporary, '--cache', path.join(temporary, 'cache'), '--registry', REGISTRY,
-      `--@unif:registry=${REGISTRY}`, '--userconfig', userconfig, '--globalconfig', globalconfig,
+      ...(pkg.name.startsWith('@') ? [`--${pkg.name.split('/')[0]}:registry=${REGISTRY}`] : []),
+      '--userconfig', userconfig, '--globalconfig', globalconfig,
       '--workspaces=false', '--fetch-retries=1', '--fetch-timeout=15000'];
     const npm = options.npm || ((argv, execution) => execFileSync('npm', argv, {
       ...execution, encoding: 'utf8', timeout: 90000, maxBuffer: 32 * 1024 * 1024,

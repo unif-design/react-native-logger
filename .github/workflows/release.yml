@@ -1,5 +1,5 @@
 # 目标路径:.github/workflows/release.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 由 github-delivery/templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
 #
 # 占位符(sync-repo.sh 替换):
 #   react-native-logger      → repo 名(如 react-native-design)
@@ -90,11 +90,30 @@ jobs:
 
       # 生成 App bot 临时 token —— 替代 GITHUB_TOKEN,使后续 git push 能 bypass `protect main`。
       # token scope 自动限定到本 repo,权限继承 App(Contents: write),~1h 过期。
+      - name: Resolve release identity
+        id: release-identity
+        env:
+          CONFIGURED_APP_ID: ${{ vars.RELEASE_APP_ID }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { readOrganization } = require('./.github/scripts/organization.cjs');
+          const policy = readOrganization(process.cwd(), process.env.REPOSITORY);
+          const variable = process.env.CONFIGURED_APP_ID;
+          if (policy?.releaseAppId && variable && String(policy.releaseAppId) !== variable) {
+            throw new Error('Release App variable differs from adopted organization identity');
+          }
+          const id = String(policy?.releaseAppId || variable || '');
+          if (!/^[1-9][0-9]*$/.test(id)) throw new Error('A verified release App ID is required');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `app_id=${id}\n`);
+          NODE
+
       - name: Generate App token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
+          app-id: ${{ steps.release-identity.outputs.app_id }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       - name: Checkout

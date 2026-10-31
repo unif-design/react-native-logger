@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "standard": "github-delivery/react-native",
+  "sourceDigest": "12992cab1cc8924d5ec940bfaef5e273f1f31ae5c71730b0316e7e06aa0a4726",
+  "repository": "unif-design/react-native-logger",
+  "organization": true,
+  "prAgent": true,
+  "requiredChecks": [
+    "actionlint",
+    "lint",
+    "test",
+    "build-library",
+    "build-android",
+    "build-ios",
+    "verified"
+  ],
+  "packageName": "@unif/react-native-logger",
+  "features": {
+    "website": true,
+    "native": false,
+    "podspec": false
+  },
+  "projectFiles": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    ".github/workflows/deploy-docs.yml"
+  ],
+  "files": {
+    ".github/ISSUE_TEMPLATE/bug_report.yml": "560e455b2eab71dfe8dc529ad7949cac616c151c241cbf0aaf3deb315cf718d5",
+    ".github/ISSUE_TEMPLATE/config.yml": "5d36d9b5e0100103c24cb360b83ebf85c250fb28ec84f16cfd3d9fe3988b15a2",
+    ".github/actions/changes/action.yml": "f08cb9c1060e6bd7c5e9e010877eef46f59a38d033fbc5bbc17350f2a75d4dce",
+    ".github/actions/changes/classify-package.cjs": "d3982e8d85c2741e004e219c9c9ed561f1e2ac361aaf250fe4bd6a006523cf92",
+    ".github/actions/setup/action.yml": "d2bc9b8bd6807be37e6991d416a1a7c8927aa20780b4a3343963194d2489fc77",
+    ".github/actions/verification/verification.cjs": "c63bef102dcfa1ca69eb5304ac100a39e53af86535e110bdf4baf7e94385b025",
+    ".github/actions/verification/verification.test.cjs": "a4caa11e4bb491394f3fbad913f0d691df49e2315acb5253ec4a0813a6f60e6f",
+    ".github/organization.json": "2f3930ded233960944cf125a59f1cdf5ba70e4e61a965e1c2f7803fb282017be",
+    ".github/scripts/check-delivery.cjs": "a307cbb6e2a31936e91258f99103cb7f114c80b10642b96b77392c6442b1afad",
+    ".github/scripts/check-library.cjs": "a931f575c6cdafad3671130b40e5e977cd7f695d80b18fd688bf24f70ea6c9b1",
+    ".github/scripts/organization.cjs": "4d86233368ee31ffa0b8855d4905de9a19e21870d673e2541578f547cad3feb9",
+    ".github/workflows/ci.yml": "f7edb01d00f319066c055f172b0dfe167a3d8e8ea302622d234f463f6bc08cf9",
+    ".github/workflows/deploy-docs.yml": "d77fe27eea1973b206518e11b0558c71651f04a2d5fb57d0b51838f80fed1793",
+    ".github/workflows/pr-agent-reusable.yml": "fe24d1aa7fcee97b0a8f3acfebb19200dc93d09f87eab283bdf012ee98223e7f",
+    ".github/workflows/pr-agent.yml": "94ea070d157ce19c5723ba9de809da71fe60a60600f008c8cc4be327f9958b1e",
+    ".github/workflows/pr-title.yml": "947c3f2569002046c9b1fc7f09dfb4ad50137a5d3a1696f83e5f7a331d6ad648",
+    ".github/workflows/release.yml": "a10d16a886f2146f17148ecd7b1e00afaa25b0d5b34058616f215bdc3a2afd06",
+    "lefthook.yml": "d27da4a994d2b58ec02040902e99503b1da17dae6e41b4a891a861d97dbfe28f",
+    "website/scripts/build-llms-core.test.js": "c9306feb718175a75c798fbd56fd310b819312e4d9e016b86fdf8c48d5b8b2f5",
+    "website/scripts/build-llms-site.test.js": "0e67c500e607b673347b8d72893956382ad155e0a2253e3ee24c4594c4b992ad",
+    "website/scripts/build-llms.js": "009e1e115a5721d9c7773c0861841a0bb4d3fd59109e17d5349e4a6a31f43bad",
+    "website/scripts/llms/.prettierrc.json": "e608b7e358e362386631fa1cb4903dbe0d36fa243788ad8a6be64d5410e6d03c",
+    "website/scripts/llms/bundle.js": "8a7b736f81973582eac3e89cefb791d29506913a01318944bc024ab9397b5417",
+    "website/scripts/llms/index.js": "93d95abdc2bec7742bd7fdace10760a26bce4f27d3d5d71224d223ae70d56e8f",
+    "website/scripts/llms/markdown.js": "d3fbb16b7353caee7288086149daaccd793ef00bfcd92247ebef972e9b8d130b",
+    "website/scripts/llms/routes.js": "beed5a039402f99bbea8475d12d390e6bc5b2b36180297eb42a99d18ec4d390a"
+  },
+  "blocks": {
+    "AGENTS.md": "fcdd1c305750276bea031e3ed653a29f13b83aabc525fa26f1f1b74282dc98e4"
+  }
+}

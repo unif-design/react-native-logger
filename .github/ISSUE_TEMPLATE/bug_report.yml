@@ -1,5 +1,5 @@
 # 目标路径:.github/ISSUE_TEMPLATE/bug_report.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓通用,无 repo 占位符。
+# 由 github-delivery/templates/ 同步而来 —— 各仓通用,无 repo 占位符。
 name: 🐛 Bug report
 description: Report a reproducible bug or regression in this library.
 labels: [bug]
@@ -63,7 +63,7 @@ body:
   - type: input
     id: reproducible-example
     attributes:
-      label: Reproducible example repository 
+      label: Reproducible example repository
       description: Please provide a link to a repository on GitHub with a reproducible example.
     validations:
       required: true
