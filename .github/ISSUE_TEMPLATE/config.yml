@@ -1,5 +1,5 @@
 # 目标路径:.github/ISSUE_TEMPLATE/config.yml
-# 由 unif-design/.github 的 templates/ 同步而来。占位符:react-native-logger → repo 名。
+# 由 github-delivery/templates/ 同步而来。占位符:react-native-logger → repo 名。
 blank_issues_enabled: false
 contact_links:
   - name: Feature Request 💡

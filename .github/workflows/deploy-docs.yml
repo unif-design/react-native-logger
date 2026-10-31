@@ -1,5 +1,5 @@
 # 目标路径:.github/workflows/deploy-docs.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 仅有 website/ 的仓才下发(sync 条件分发)。
+# 由 github-delivery/templates/ 同步而来 —— 仅有 website/ 的仓才下发(sync 条件分发)。
 #
 # 占位符(sync-repo.sh 替换):
 #   @unif/react-native-logger  → npm 包名(如 @unif/react-native-design);website workspace = @unif/react-native-logger-website

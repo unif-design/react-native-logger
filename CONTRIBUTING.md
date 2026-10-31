@@ -20,7 +20,7 @@ yarn website build
 
 公开接口位于包根和 `/files`。修改时同步类型、示例和文档，保留脱敏、身份隔离、队列限制及快照释放契约。根入口不应加载原生文件 SDK，组件库只记录日志，由应用统一安装运行时。
 
-文档源位于 `docs/`，网站与 LLM 资料共用这批 Markdown；生成器由组织标准维护，修改文档后重新构建，不手改生成结果。
+文档源位于 `docs/`，网站与 LLM 资料共用这批 Markdown；生成器由 `github-delivery` 的 `templates/llms` 维护，修改文档后执行本库构建，不手改生成结果。
 
 ## 原生示例
 
@@ -32,4 +32,4 @@ yarn website build
 
 ## 提交与交付
 
-调整公开 API 或既有实现行为前，先通过 issue 与维护者确认范围；已获授权的任务按确认范围执行。提交与 PR 标题、正文使用中文，保留 Conventional Commits 类型前缀。CI 与发布配置来自 `unif-design/.github`；正式发行遵循组织 PR、发布机器人和 npm Trusted Publisher 流程，具体操作以当前任务授权为准。保留许可与 [NOTICE](NOTICE) 中的上游署名。
+调整公开 API 或既有实现行为前，先通过 issue 与维护者确认范围；已获授权的任务按确认范围执行。提交与 PR 标题、正文使用中文，保留 Conventional Commits 类型前缀。CI 与发布配置由 `github-delivery` 的模板和工具维护，Unif 组织值落实为本库 `.github/organization.json`；检查入口见[交付配置与检查](docs/DEVELOPMENT.md#交付配置与检查)。正式发行沿用本库 PR、发布机器人和 npm Trusted Publisher 流程，具体操作以当前任务授权为准。保留许可与 [NOTICE](NOTICE) 中的上游署名。

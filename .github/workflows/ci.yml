@@ -1,6 +1,6 @@
 # 目标路径:.github/workflows/ci.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
-# 改 CI 标准请改 .github/templates/workflows/ci.yml 再 sync-repo.sh 下发,不要直接改本文件。
+# 由 github-delivery/templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 改 CI 标准请改 github-delivery/templates/workflows/ci.yml 再 sync-repo.sh 下发,不要直接改本文件。
 #
 # 这是「四仓最优并集」:
 #   - actionlint 显式 -shellcheck=shellcheck 加固(camera 写法)
@@ -39,16 +39,8 @@ jobs:
         run: test "$CHANGES_RESULT" = success
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Checkout organization standards
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: unif-design/.github
-          ref: main
-          path: .unif-standards
-          persist-credentials: false
-      - name: Check library onboarding and managed templates
-        run: bash .unif-standards/scripts/check-repo.sh "${GITHUB_REPOSITORY#*/}" "$GITHUB_WORKSPACE"
-        shell: bash
+      - name: Check adopted delivery standard
+        run: node .github/scripts/check-delivery.cjs
       - name: Test verification decisions
         run: node --test .github/actions/verification/verification.test.cjs
       - name: Run actionlint

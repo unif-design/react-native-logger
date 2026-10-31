@@ -1,5 +1,5 @@
 # 目标路径:.github/workflows/pr-title.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 由 github-delivery/templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
 name: PR Title
 
 # 校验 PR 标题符合 conventional commits。

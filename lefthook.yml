@@ -1,5 +1,5 @@
 # 目标路径:lefthook.yml(仓库根)
-# 由 unif-design/.github 的 templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
+# 由 github-delivery/templates/ 同步而来 —— 各仓统一版本,不要单仓 drift。
 # 本地 git hook:pre-commit 跑 branch-guard + eslint + tsc(+ native 仓的 clang-format / ktlint),
 # commit-msg 跑 commitlint + no-ai-trailer。
 #

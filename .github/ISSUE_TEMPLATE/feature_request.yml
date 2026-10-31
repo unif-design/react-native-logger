@@ -1,5 +1,5 @@
 # 目标路径:.github/ISSUE_TEMPLATE/feature_request.yml
-# 由 unif-design/.github 的 templates/ 同步而来 —— 这是「基础版」。占位符:react-native-logger → repo 名。
+# 由 github-delivery/templates/ 同步而来 —— 这是「基础版」。占位符:react-native-logger → repo 名。
 # sync-repo.sh 仅在目标仓【不存在】 feature_request.yml 时创建,不覆盖已有的
 # (各仓可写 repo 特化的字段 / 示例,如 camera 的相机 API 示例)。
 name: ✨ Feature request
@@ -61,5 +61,5 @@ body:
           required: true
         - label: 这是个**具体可实施**的需求(不是模糊 idea)
           required: true
-        - label: 我已经看过 [AUTOMATION.md](https://github.com/unif-design/.github/blob/main/AUTOMATION.md) 的发版流程
+        - label: 我已经看过 本仓库的贡献与交付说明
           required: false

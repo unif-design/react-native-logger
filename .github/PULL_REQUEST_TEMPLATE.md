@@ -1,6 +1,6 @@
 <!--
 目标路径:.github/PULL_REQUEST_TEMPLATE.md
-由 unif-design/.github 的 templates/ 同步而来 —— 基础版,各仓可在「验证 / 影响范围」补 repo 特有项。
+由 github-delivery/templates/ 同步而来 —— 基础版,各仓可在「验证 / 影响范围」补 repo 特有项。
 -->
 ## 变更概述
 
