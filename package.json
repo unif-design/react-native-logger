@@ -105,8 +105,7 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "react": "^19.3.0",
-    "react-native": ">=0.88.0",
+    "react-native": ">=0.86.0",
     "react-native-blob-util": "^0.25.1"
   },
   "workspaces": [
@@ -185,5 +184,13 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    },
+    "react-native-blob-util": {
+      "optional": true
+    }
   }
 }

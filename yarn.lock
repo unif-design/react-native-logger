@@ -6790,9 +6790,13 @@ __metadata:
     turbo: "npm:^2.10.8"
     typescript: "npm:^6.0.3"
   peerDependencies:
-    react: ^19.3.0
-    react-native: ">=0.88.0"
+    react-native: ">=0.86.0"
     react-native-blob-util: ^0.25.1
+  peerDependenciesMeta:
+    react-native:
+      optional: true
+    react-native-blob-util:
+      optional: true
   languageName: unknown
   linkType: soft
 

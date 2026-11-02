@@ -29,13 +29,13 @@ description: 工程标准、真实消费者、文档同源与分层验证。
 
 正式切换须使用已确认的发行版本。迁移时将 `@/capabilities/logger`、`/runtime`、`/files`、`/normalization` 改为根入口或 `/files`，私有 `/types` 引用改用公开类型；删除被替代的日志核心及已迁入库的单测。
 
-应用保存原 service、字段白名单、启动匿名 scope 和 `PortalLogs` 目录。bootstrap 显式传入这些策略以及现有 Design 后端，保留设备读取、AppState 刷新、既有账号身份摘要和清理／分享入口。不能在包迁移时更换日志目录、身份算法或业务事件。
+应用保存原 service、字段白名单、启动匿名 scope 和 `PortalLogs` 目录。bootstrap 显式传入这些策略，使用默认共享后端，保留设备读取、AppState 刷新、既有账号身份摘要和清理／分享入口。不能在包迁移时更换日志目录、身份算法或业务事件。
 
 本地消费验证使用打包后的发行布局，应用生产清单不写临时路径或源码别名。正式迁移前核对应用当前日志实现与拟采用版本的差异，保留任务范围外的工作区修改。
 
 ## 其他库接入
 
-新生产者使用根入口 `createLogger(scope)`，宿主统一安装。宿主可通过根入口的 `LogBackend` 契约注入已有 Design 后端；内部 backend 不作为独立公共子入口。其他已发布库按实际消费者逐库验证，不把本库就绪当作它们已经完成迁移。
+新生产者使用根入口 `createLogger(scope)`，宿主统一安装。Design 的既有可变参数 API 通过根入口 `defaultLogBackend` 转导同一分发器，宿主不再注入独立 Design 后端。其他自定义后端仍可使用 `LogBackend` 契约；不增加 backend 子入口。其他已发布库按实际消费者逐库验证，不把本库就绪当作它们已经完成迁移。
 
 ## 检查
 
@@ -83,11 +83,11 @@ LLM 构建实现由 `github-delivery` 的 `templates/llms` 维护，通过该技
 
 在仓库根目录按阶段执行：
 
-| 命令 | 检查范围 |
-| --- | --- |
-| `node .github/scripts/check-delivery.cjs` | 离线检查受管文件、组织配置与 source 元数据。 |
-| `node .github/scripts/check-library.cjs pack` | 完成库构建后，检查当前 tarball 的导出、声明与文件清单。 |
-| `node .github/scripts/check-library.cjs release` | 发行前校验 README、许可和发布配置，不执行发布。 |
+| 命令                                               | 检查范围                                                  |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `node .github/scripts/check-delivery.cjs`          | 离线检查受管文件、组织配置与 source 元数据。              |
+| `node .github/scripts/check-library.cjs pack`      | 完成库构建后，检查当前 tarball 的导出、声明与文件清单。   |
+| `node .github/scripts/check-library.cjs release`   | 发行前校验 README、许可和发布配置，不执行发布。           |
 | `node .github/scripts/check-library.cjs published` | 联网核验 npm 当前版本的元数据、下载完整性与实际 tarball。 |
 
 CI 与发布步骤见本库 `.github/workflows/`，组织配置调整以项目文件及当前授权为准。本地检查、远端 CI、npm 发布、文档部署和设备验收分别报告。
