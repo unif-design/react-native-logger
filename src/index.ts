@@ -1,3 +1,6 @@
+import * as defaultLogBackend from './backend';
+
+export { defaultLogBackend };
 export { installLogging } from './runtime/installLogging';
 export { markLoggingUnavailable } from './state';
 export { redactDiagnosticText } from './normalization/redactDiagnosticText';

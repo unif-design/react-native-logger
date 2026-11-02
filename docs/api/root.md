@@ -86,3 +86,9 @@ export function installWithConsole(options: LoggingOptions) {
 - `ConsoleCaptureOptions` 含目标 `target` 和后端的 `transport`。释放时恢复原 console 和 transport 行为。
 
 序列化规则、控制台时区与 JSONL 字段见 [输出格式](../FORMAT.md)。
+
+## defaultLogBackend
+
+根入口导出默认分发器的同一对象，包含 `createLogger`、`setLogLevel`、`getLogLevel`、`addTransport`、`removeTransport` 和 `consoleTransport`。它使用既有 `Logger` 可变参数签名，供已有基础日志 API 转导，保留级别、transport 异常隔离与重入语义；不创建另一份状态。
+
+应用通常省略 `installLogging` 的 `backend`，由默认分发器采集这些 SDK 诊断。组件库不要再次安装运行时；新增结构化生产者仍使用根入口 `createLogger`。两者签名与用途不同，不能用结构化 `createLogger` 代替后端方法。
