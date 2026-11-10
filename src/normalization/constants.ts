@@ -91,9 +91,9 @@ export const RELATIVE_URL_PARAMETERS = new RegExp(
   'gi',
 );
 export const HEADER_SECRET_NAME_SOURCE = String.raw`authorization|(?:set[-_\s]*)?cookie`;
-export const SECRET_FIELD_NAME_SOURCE = String.raw`(?:x[-_\s]*)?api[-_\s]*key|access[-_\s]*key(?:[-_\s]*(?:id|secret))?|client[-_\s]*secret|(?:access|refresh|session|auth|security|id)[-_\s]*token|token|jwt|secret|password|passwd|pwd|(?:verification|verify|sms|security|auth)[-_\s]*code|otp|pin|device[-_\s]*(?:id|uuid)|android[-_\s]*id|advertising[-_\s]*id|idfa|idfv|udid|imei|imsi`;
+export const SECRET_FIELD_NAME_SOURCE = String.raw`(?:x[-_\s]*)?api[-_\s]*key|access[-_\s]*key(?:[-_\s]*(?:id|secret))?|client[-_\s]*secret|(?:access|refresh|session|auth|security|id)[-_\s]*token|token|jwt|secret|password|passwd|pwd|account|login[-_\s]*no|user[-_\s]*(?:id|name)|real[-_\s]*name|customer[-_\s]*name|contact[-_\s]*name|address|email|phone|mobile|账号|帐号|姓名|手机号|电话|地址|(?:verification|verify|sms|security|auth)[-_\s]*code|otp|pin|device[-_\s]*(?:id|uuid)|android[-_\s]*id|advertising[-_\s]*id|idfa|idfv|udid|imei|imsi`;
 // 诊断字段按完整名称匹配，避免普通字段被敏感词片段误伤。
-export const REPORT_SENSITIVE_NAME_SOURCE = String.raw`credential|session|idcard|phone|mobile|bank`;
+export const REPORT_SENSITIVE_NAME_SOURCE = String.raw`credential|session|idcard|phone|mobile|bank|userInfo|profile|user|name|fullName|realName|contact|comGroup|roleId|roleName|branchNo|message|text|content|body|payload|request|response|account|loginNo|userId|userName|realName|customerName|contactName|address|email|身份证|账号|帐号|姓名|手机号|电话|地址`;
 export const SENSITIVE_DIAGNOSTIC_FIELD_PATTERN = new RegExp(
   `^(?:${HEADER_SECRET_NAME_SOURCE}|${SECRET_FIELD_NAME_SOURCE}|${REPORT_SENSITIVE_NAME_SOURCE})$`,
   'i',

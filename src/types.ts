@@ -138,6 +138,8 @@ export interface LoggingPolicy {
   readonly service: string;
   readonly allowedFields: readonly string[];
   readonly startupScopes: readonly string[];
+  readonly eventDescriptions?: Readonly<Record<string, string>>;
+  readonly reasonDescriptions?: Readonly<Record<string, string>>;
 }
 
 export interface LoggingOptions {

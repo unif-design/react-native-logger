@@ -38,7 +38,7 @@ test('字段超过字节预算时先移除字段，保留必要记录与真实�
   expect(result.bytes).toBeLessThanOrEqual(512);
 });
 
-test('错误栈和cause超过预算时保留压缩后的错误消息', () => {
+test('错误栈和cause超过预算时保留脱敏占位及字节边界', () => {
   const result = serializeLogRecord(
     input({
       error: {
@@ -56,7 +56,7 @@ test('错误栈和cause超过预算时保留压缩后的错误消息', () => {
     800,
   )!;
   expect(result).not.toBeNull();
-  expect(result.record.error?.message).toHaveLength(128);
+  expect(result.record.error?.message).toBe('[REDACTED]');
   expect(result.record.error?.stack).toBeUndefined();
   expect(result.record.error?.cause).toBeUndefined();
   expect(result.bytes).toBeLessThanOrEqual(800);
@@ -130,7 +130,7 @@ test.each([Infinity, false])(
     );
     expect(result).toMatchObject({
       truncated: true,
-      error: { message: 'failed' },
+      error: { message: '[REDACTED]' },
     });
     expect(result?.error?.code).toBeUndefined();
     expect(result?.error?.stack).toBeUndefined();

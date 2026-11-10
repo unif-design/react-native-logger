@@ -90,7 +90,7 @@ describe('log normalization', () => {
       }),
     );
     expect(result.record.fields?.reason).toBe('合成证件 [REDACTED]');
-    expect(result.record.error?.message).toBe('合成证件 [REDACTED]');
+    expect(result.record.error?.message).toBe('[REDACTED]');
     expect(result.line).not.toContain('12345678901234567');
   });
 
@@ -373,7 +373,7 @@ describe('log normalization', () => {
       code: 'account.restore.failed',
       cause: { name: 'TypeError', code: 'storage.read.failed' },
     });
-    expect(result.record.error?.stack).toContain('at restore');
+    expect(result.record.error?.stack).toContain('at [REDACTED]:5:2');
     expect(result.line).not.toMatch(
       /inner-token-value|user@example.com|\/Users\/alice|\/data\/user\/0|never-dump-config/,
     );
@@ -396,7 +396,7 @@ describe('log normalization', () => {
 
     expect(result.record).toMatchObject({
       truncated: true,
-      error: { message: 'broken', code: 'stable.failure' },
+      error: { message: '[REDACTED]', code: 'stable.failure' },
     });
     expect(result.line).not.toContain('secret-stack');
     expect(reads).toBe(0);
@@ -677,4 +677,13 @@ describe('log text redaction', () => {
     );
     expect(result.line).not.toContain('178271cc-f97e-4ddb-9bda-83d4280bebaf');
   });
+});
+
+test('描述字典只读取自身登记值，不把对象原型当成文案', () => {
+  const result = serializeLogRecord(createInput({ event: 'constructor' }), {
+    ...TEST_POLICY,
+    eventDescriptions: { request_failed: '请求失败' },
+  });
+  expect(result?.record.fields?.summary).toBeUndefined();
+  expect(result?.line).not.toContain('function Object');
 });

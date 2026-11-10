@@ -68,7 +68,11 @@ export function redactSensitiveText(
     .replace(HEADER_SECRET_PATTERN, `$1=${REDACTED_TEXT}`)
     .replace(AUTH_SCHEME_PATTERN, `$1 ${REDACTED_TEXT}`)
     .replace(SENSITIVE_ASSIGNMENT_PATTERN, `$1=${REDACTED_TEXT}`)
-    .replace(DEVICE_LABEL_PATTERN, `$1 ${REDACTED_TEXT}`);
+    .replace(DEVICE_LABEL_PATTERN, `$1 ${REDACTED_TEXT}`)
+    .replace(
+      /(账号|帐号|姓名|手机号|电话|地址|邮箱)["']?\s*[:：=]\s*(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*'|[^\r\n,;，；}]+)/g,
+      `$1=${REDACTED_TEXT}`,
+    );
   if (redacted.includes('.')) {
     redacted = redactDelimitedText(redacted, {
       expression: JWT_PATTERN,

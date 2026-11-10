@@ -11,6 +11,18 @@ description: 日志安装、策略、结构化记录、诊断以及自定义后�
 
 安装并返回 `LoggingHandle`。同一运行时重复安装返回已有句柄；策略和选项只在首次安装生效。配置错误会抛出并释放传入的文件存储，初始化调用方应捕获错误。默认使用库内部后端，生产环境跳过 debug。
 
+`LoggingPolicy` 可选的 `eventDescriptions`、`reasonDescriptions` 均为 `Readonly<Record<string, string>>`，安装时复制并冻结。键为技术标识，固定说明最多 160 字符；命中后在 `fields.summary` 交付，继续采用单条 8 KiB 预算。未知原因不补猜，动态用户数据不能作为描述字典。
+
+```ts
+policy: {
+  service: 'sample-app',
+  allowedFields: ['method', 'reason'],
+  startupScopes: ['bootstrap'],
+  eventDescriptions: { request_failed: '请求失败' },
+  reasonDescriptions: { connection_reset: '连接被重置' },
+}
+```
+
 | 参数              | 类型                         | 行为                                                          |
 | ----------------- | ---------------------------- | ------------------------------------------------------------- |
 | `policy`          | `LoggingPolicy`，必填        | `service`、`allowedFields`、`startupScopes`，安装时验证并固定 |

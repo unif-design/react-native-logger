@@ -146,7 +146,7 @@ test('控制台transport位于文件之后时仍格式化且不重复落盘', as
   expect(setup.records()).toHaveLength(1);
 });
 
-test('开发 console 五种级别进入现有缓冲，原方法保持参数、接收者和一次输出', async () => {
+test('开发 console 五种级别进入现有缓冲，省略原始参数并保持接收者和一次输出', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner(null);
@@ -172,7 +172,9 @@ test('开发 console 五种级别进入现有缓冲，原方法保持参数、�
   for (const original of Object.values(setup.originals)) {
     expect(original).toHaveBeenCalledTimes(1);
   }
-  expect(setup.originals.info).toHaveBeenCalledWith('info detail', details);
+  expect(setup.originals.info).toHaveBeenCalledWith(
+    expect.stringContaining('原始输出已省略'),
+  );
   expect(setup.originals.info.mock.contexts[0]).toBe(receiver);
 });
 
@@ -258,10 +260,7 @@ test('console 文本和 Error 经现有脱敏，任意对象不展开或触发�
   expect(payload.toJSON).not.toHaveBeenCalled();
   expect(payload.toString).not.toHaveBeenCalled();
   expect(setup.originals.error).toHaveBeenCalledWith(
-    'Authorization: Bearer SECRET_HEADER',
-    error,
-    payload,
-    'SECRET_ARGUMENT',
+    expect.stringContaining('原始输出已省略'),
   );
 });
 
@@ -368,3 +367,46 @@ test.each(['', 'Asia/Tokyo', null, 480])(
     expect(getLogStatus().installed).toBe(false);
   },
 );
+
+test('中文摘要与技术明细同时交付控制台和文件，原始用户信息不进入任何输出', async () => {
+  const setup = fixture();
+  handle = installLogging({
+    ...setup.options,
+    policy: {
+      ...TEST_POLICY,
+      eventDescriptions: { request_failed: '请求失败' },
+      reasonDescriptions: { connection_reset: '连接被重置' },
+    },
+  });
+  await handle.setOwner(null);
+  const error = Object.assign(new Error('张三想买两箱商品，PRIVATE_ADDRESS'), {
+    code: 'ECONNRESET',
+  });
+  createLogger('http').error('request_failed', {
+    error,
+    httpStatus: 503,
+    fields: { reason: 'connection_reset', method: 'POST' },
+  });
+  console.warn('account=alice; userName=张三; phone=13812345678', error);
+  sdk.createLogger('sample').warn('PRIVATE_USER_TEXT', error);
+  const output = JSON.stringify(setup.originals.error.mock.calls);
+  expect(output).toContain('请求失败');
+  expect(output).toContain('503');
+  expect(output).toContain('ECONNRESET');
+  const all =
+    output +
+    JSON.stringify(setup.originals.warn.mock.calls) +
+    JSON.stringify(setup.records());
+  for (const value of [
+    '张三',
+    'PRIVATE_',
+    'alice',
+    '13812345678',
+    '想买两箱商品',
+  ])
+    expect(all).not.toContain(value);
+  expect(
+    setup.records().find((record) => record.event === 'request_failed').fields
+      .summary,
+  ).toBe('请求失败：连接被重置');
+});

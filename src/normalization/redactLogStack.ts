@@ -84,7 +84,12 @@ export function redactLogStack(
   const lines = source.split(/\r?\n/);
   if (!oversized) {
     return redactLogText(
-      lines.map((line) => projectStackLine(line) ?? line).join('\n'),
+      lines
+        .flatMap((line) => {
+          const frame = projectStackLine(line, false);
+          return frame ? [frame] : [];
+        })
+        .join('\n'),
       state,
       false,
       NORMALIZATION_LIMITS.stackCharacters,
