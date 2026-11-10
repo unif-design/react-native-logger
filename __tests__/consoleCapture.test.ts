@@ -393,6 +393,7 @@ test('中文摘要与技术明细同时交付控制台和文件，原始用户�
   expect(output).toContain('请求失败');
   expect(output).toContain('503');
   expect(output).toContain('ECONNRESET');
+  expect(output.indexOf('请求失败')).toBeLessThan(output.indexOf('httpStatus'));
   const all =
     output +
     JSON.stringify(setup.originals.warn.mock.calls) +
