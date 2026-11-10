@@ -11,7 +11,7 @@ React Native 结构化日志库，提供操作关联、敏感信息脱敏、文�
 | 原生 `/files` 依赖     | 支持范围   | 本仓开发组合 |
 | ---------------------- | ---------- | ------------ |
 | React Native           | `>=0.86.0` | 0.88.1       |
-| react-native-blob-util | `^0.25.1`  | 0.25.1       |
+| react-native-blob-util | `1.1.1`    | 1.1.1        |
 
 这两个依赖在包中声明为可选 peer，使用 iOS／Android `/files` 时必须安装。React 由 React Native 宿主提供，本库不直接使用。Web 的 `/files` 入口使用有界内存，不支持文件或快照；原生鸿蒙不在本包范围内。开发组合不表示整个支持范围均已通过设备验证。
 
@@ -20,7 +20,7 @@ React Native 结构化日志库，提供操作关联、敏感信息脱敏、文�
 1. 安装日志库和文件依赖：
 
    ```sh
-   npm install @unif/react-native-logger react-native-blob-util@^0.25.1
+   npm install @unif/react-native-logger react-native-blob-util@1.1.1
    ```
 
 2. iOS 同步 Pods，再重新构建原生应用。

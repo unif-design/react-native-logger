@@ -14,7 +14,7 @@ npm install @unif/react-native-logger react-native-blob-util
 cd ios && bundle exec pod install
 ```
 
-根入口不要求 React 或原生 SDK。原生 `/files` 需要 React Native `>=0.86.0` 和 `react-native-blob-util ^0.25.1`，两者声明为可选 peer，文件能力的宿主须显式安装。开发示例使用 React 19.3.1／RN 0.88.1／BlobUtil 0.25.1，范围声明不代表每个组合都完成设备验证。安装原生依赖后重新编译 iOS／Android 应用。
+根入口不要求 React 或原生 SDK。原生 `/files` 需要 React Native `>=0.86.0` 和 `react-native-blob-util 1.1.1`，两者声明为可选 peer，文件能力的宿主须显式安装。开发示例使用 React 19.3.1／RN 0.88.1／BlobUtil 1.1.1，范围声明不代表每个组合都完成设备验证。安装原生依赖后重新编译 iOS／Android 应用。
 
 根入口不加载原生文件 SDK。浏览器 bundler 使用 `browser` 条件时，`/files` 自动解析为内存实现；不需要额外 Web 子入口。内存实现不提供文件、快照或导出能力。
 

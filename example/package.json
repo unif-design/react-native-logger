@@ -19,7 +19,7 @@
     "@unif/react-native-logger": "workspace:*",
     "react": "19.3.1",
     "react-native": "0.88.1",
-    "react-native-blob-util": "^0.25.1",
+    "react-native-blob-util": "1.1.1",
     "react-native-gesture-handler": "^3.4.0",
     "react-native-reanimated": "4.7.1",
     "react-native-reanimated-carousel": "^5.2.0",
