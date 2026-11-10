@@ -238,7 +238,7 @@ test('错误诊断返回交给控制台和文件的同一条完整脱敏日志�
     buildNumber: '1',
     platform: 'ios',
     error: {
-      message: 'storage failed',
+      message: '[REDACTED]',
       code: 'key_value.invalid_options',
       stack: expect.any(String),
       cause: { name: 'Error', message: expect.stringContaining('[REDACTED]') },

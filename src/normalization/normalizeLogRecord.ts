@@ -160,6 +160,31 @@ export function normalizeLogRecord(
   if (fields) {
     record.fields = fields;
   }
+  const description =
+    policy.eventDescriptions &&
+    Object.hasOwn(policy.eventDescriptions, record.event)
+      ? policy.eventDescriptions[record.event]
+      : undefined;
+  if (description !== undefined) {
+    const reasonText = (key: string | undefined): string | undefined =>
+      key &&
+      policy.reasonDescriptions &&
+      Object.hasOwn(policy.reasonDescriptions, key)
+        ? policy.reasonDescriptions[key]
+        : undefined;
+    const reason = record.fields?.reason;
+    const reasonDescription =
+      (typeof reason === 'string' ? reasonText(reason) : undefined) ??
+      reasonText(record.code) ??
+      (record.httpStatus ? reasonText('http.' + record.httpStatus) : undefined);
+    record.fields = {
+      ...record.fields,
+      summary: redactLogText(
+        description + (reasonDescription ? '：' + reasonDescription : ''),
+        state,
+      ),
+    };
+  }
   const error = readLogProperty(input, 'error', state);
   if (error !== undefined) {
     record.error = normalizeLogError(error, state);

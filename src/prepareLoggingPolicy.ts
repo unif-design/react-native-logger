@@ -19,8 +19,27 @@ export function prepareLoggingPolicy(policy: LoggingPolicy): LoggingPolicy {
   ) {
     throw new TypeError('Invalid logging policy');
   }
+  function descriptions(value: Readonly<Record<string, string>> | undefined) {
+    if (value === undefined) return undefined;
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      !Object.entries(value).every(
+        ([key, text]) =>
+          validName(key) &&
+          typeof text === 'string' &&
+          text.length > 0 &&
+          text.length <= 160,
+      )
+    ) {
+      throw new TypeError('Invalid log descriptions');
+    }
+    return Object.freeze({ ...value });
+  }
   return Object.freeze({
     service: policy.service,
+    eventDescriptions: descriptions(policy.eventDescriptions),
+    reasonDescriptions: descriptions(policy.reasonDescriptions),
     allowedFields: Object.freeze([...policy.allowedFields]),
     startupScopes: Object.freeze([...policy.startupScopes]),
   });

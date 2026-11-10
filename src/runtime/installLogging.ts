@@ -175,7 +175,11 @@ export function installLogging(options: LoggingOptions): LogRuntime {
         input.level,
         input.level === 'error' ? 'sdk.error' : 'sdk.warning',
         {
-          fields: { reason: input.message },
+          fields: {
+            ...getFailureDiagnostics(
+              input.args.find((value) => value instanceof Error),
+            ),
+          },
           error: input.args.find((value) => value instanceof Error),
         },
       );

@@ -1,5 +1,6 @@
 import { CONSOLE_METHODS } from '../constants';
 import { createLogger } from '../createLogger';
+import { getFailureDiagnostics } from '../getFailureDiagnostics';
 import type { ConsoleCaptureOptions } from '../types';
 import type { LogRecord as SdkLogRecord } from '../backend/types';
 
@@ -26,6 +27,10 @@ export function captureConsole(
     try {
       const formatted = active ? formatRecord(record) : undefined;
       if (formatted !== undefined) return target[record.level](formatted);
+      if (active)
+        return target[record.level](
+          '[SDK] ' + record.level + '；原始输出已省略，请查看结构化诊断',
+        );
       return previousTransport.call(this, record);
     } finally {
       backendOutput = previousOutput;
@@ -55,26 +60,32 @@ export function captureConsole(
     for (const method of CONSOLE_METHODS) {
       const previous = target[method];
       const wrapped = function (this: unknown, ...args: unknown[]) {
-        if (!active || capturing || backendOutput)
-          return previous.apply(this, args);
+        if (!active || backendOutput) return previous.apply(this, args);
+        if (capturing)
+          return previous.call(
+            this,
+            'console.' + method + '；原始输出已省略，请查看结构化诊断',
+          );
         capturing = true;
         try {
           try {
             if (development || method === 'warn' || method === 'error') {
               log[method === 'log' ? 'info' : method](`console.${method}`, {
                 fields: {
-                  reason:
-                    typeof args[0] === 'object' && args[0] !== null
-                      ? undefined
-                      : args[0],
+                  ...getFailureDiagnostics(
+                    args.find((value) => value instanceof Error),
+                  ),
                 },
                 error: args.find((value) => value instanceof Error),
               });
             }
           } catch {
-            // 采集失败不能改变原 console 的参数、返回值或异常。
+            // 采集失败仍不回写原始参数；输出固定说明，避免泄露用户信息。
           }
-          return previous.apply(this, args);
+          return previous.call(
+            this,
+            'console.' + method + '；原始输出已省略，请查看结构化诊断',
+          );
         } finally {
           capturing = false;
         }

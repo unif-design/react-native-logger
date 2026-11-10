@@ -48,6 +48,7 @@ export function formatLogLine(
       value.functionName,
     );
   }
+  add('summary', record.fields?.summary);
   add('op', record.operationId);
   add('parent', record.parentOperationId);
   add('phase', record.phase);
@@ -63,8 +64,9 @@ export function formatLogLine(
     add('errorType', record.error.name);
     add('errorCode', record.error.code);
   }
-  for (const [key, value] of Object.entries(record.fields ?? {}))
-    add(key, value);
+  for (const [key, value] of Object.entries(record.fields ?? {})) {
+    if (key !== 'summary') add(key, value);
+  }
   if (record.truncated) add('truncated', true);
   return parts.join(' ');
 }
