@@ -61,11 +61,10 @@ export function captureConsole(
       const previous = target[method];
       const wrapped = function (this: unknown, ...args: unknown[]) {
         if (!active || backendOutput) return previous.apply(this, args);
-        if (capturing)
-          return previous.call(
-            this,
-            'console.' + method + '；原始输出已省略，请查看结构化诊断',
-          );
+        const outputArgs = development
+          ? args
+          : ['console.' + method + '；原始输出已省略，请查看结构化诊断'];
+        if (capturing) return previous.apply(this, outputArgs);
         capturing = true;
         try {
           try {
@@ -80,12 +79,9 @@ export function captureConsole(
               });
             }
           } catch {
-            // 采集失败仍不回写原始参数；输出固定说明，避免泄露用户信息。
+            // 采集异常不能中断原控制台调用。
           }
-          return previous.call(
-            this,
-            'console.' + method + '；原始输出已省略，请查看结构化诊断',
-          );
+          return previous.apply(this, outputArgs);
         } finally {
           capturing = false;
         }

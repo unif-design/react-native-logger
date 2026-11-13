@@ -146,7 +146,7 @@ test('控制台transport位于文件之后时仍格式化且不重复落盘', as
   expect(setup.records()).toHaveLength(1);
 });
 
-test('开发 console 五种级别进入现有缓冲，省略原始参数并保持接收者和一次输出', async () => {
+test('开发 console 五种级别各采集一次，原样转发参数并保留接收者', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner(null);
@@ -154,7 +154,7 @@ test('开发 console 五种级别进入现有缓冲，省略原始参数并保�
   const details = { count: 2 };
   console.debug('debug detail');
   console.log('legacy info');
-  console.info.call(receiver, 'info detail', details);
+  console.info.call(receiver, 'info %o', details);
   console.warn('warning');
   console.error('error');
 
@@ -172,9 +172,12 @@ test('开发 console 五种级别进入现有缓冲，省略原始参数并保�
   for (const original of Object.values(setup.originals)) {
     expect(original).toHaveBeenCalledTimes(1);
   }
-  expect(setup.originals.info).toHaveBeenCalledWith(
-    expect.stringContaining('原始输出已省略'),
-  );
+  expect(setup.originals.debug).toHaveBeenCalledWith('debug detail');
+  expect(setup.originals.log).toHaveBeenCalledWith('legacy info');
+  expect(setup.originals.info).toHaveBeenCalledWith('info %o', details);
+  expect(setup.originals.info.mock.calls[0][1]).toBe(details);
+  expect(setup.originals.warn).toHaveBeenCalledWith('warning');
+  expect(setup.originals.error).toHaveBeenCalledWith('error');
   expect(setup.originals.info.mock.contexts[0]).toBe(receiver);
 });
 
@@ -225,7 +228,7 @@ test('App 和 SDK 输出不回流成 console 记录，SDK 同一事件只落一�
   expect(setup.originals.info).toHaveBeenCalledTimes(1);
 });
 
-test('console 文本和 Error 经现有脱敏，任意对象不展开或触发转换', async () => {
+test('开发 console 原样传递 Error 和对象，采集时不展开对象，文件脱敏', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner(null);
@@ -259,9 +262,13 @@ test('console 文本和 Error 经现有脱敏，任意对象不展开或触发�
   expect(getter).not.toHaveBeenCalled();
   expect(payload.toJSON).not.toHaveBeenCalled();
   expect(payload.toString).not.toHaveBeenCalled();
-  expect(setup.originals.error).toHaveBeenCalledWith(
-    expect.stringContaining('原始输出已省略'),
-  );
+  const args = setup.originals.error.mock.calls[0];
+  expect(args).toHaveLength(4);
+  expect(args[0]).toBe('Authorization: Bearer SECRET_HEADER');
+  expect(args[1]).toBe(error);
+  expect(args[2]).toBe(payload);
+  expect(args[3]).toBe('SECRET_ARGUMENT');
+  expect(setup.originals.warn.mock.calls[0][0]).toBe(payload);
 });
 
 test('安装幂等，释放恢复原方法，旧句柄不影响重新安装', async () => {
@@ -368,8 +375,8 @@ test.each(['', 'Asia/Tokyo', null, 480])(
   },
 );
 
-test('中文摘要与技术明细同时交付控制台和文件，原始用户信息不进入任何输出', async () => {
-  const setup = fixture();
+test('正式包中文摘要与技术明细同时交付控制台和文件，原始用户信息不进入任何输出', async () => {
+  const setup = fixture(false);
   handle = installLogging({
     ...setup.options,
     policy: {
