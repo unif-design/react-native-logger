@@ -15,7 +15,7 @@ description: 工程标准、真实消费者、文档同源与分层验证。
 
 模板存在不证明远端规则、CI、npm 发布或文档部署已经完成；各项交付按组织流程分别读取实际结果。本库包含 Docusaurus 文档站，没有自有 native 源码。
 
-通用规范使用 `uni-skills`：`code-organization` 说明目录与文件组织，`react-native-development` 说明 RN 实现要求，`react-native-library` 说明独立库与消费者验证，`documentation` 说明文档与文档站维护。Unif 的设计、测试、审查和交付按 `unif-portal-dev-skills` 对应技能执行；本库接口与行为以公开类型和有效契约为准。
+通用规范使用 `uni-skills`：`uni-code-organization` 说明目录与文件组织，`uni-rn-dev` 说明 RN 实现要求，`uni-rn-library` 说明独立库与消费者验证，`uni-documentation` 说明文档与文档站维护。Unif 的设计、测试、审查和交付按 `unif-portal-dev-skills` 对应技能执行；本库接口与行为以公开类型和有效契约为准。
 
 ## 实现归属
 
@@ -75,11 +75,11 @@ yarn website typecheck
 yarn website build
 ```
 
-LLM 构建实现由 `github-delivery` 的 `templates/llms` 维护，通过该技能提供的同步工具更新本库脚本；本库执行 `node website/scripts/build-llms.js` 生成资料，不手改共享实现。公共出口回归检查根 API、原生隔离和 exports 白名单，类型检查同时验证没有 lib 产物时的 example。分发验收还应使用真实 tarball 验证根入口和 `/files` 的 browser 条件。
+LLM 构建实现由 `uni-github-delivery` 的 `templates/llms` 维护，通过该技能提供的同步工具更新本库脚本；本库执行 `node website/scripts/build-llms.js` 生成资料，不手改共享实现。公共出口回归检查根 API、原生隔离和 exports 白名单，类型检查同时验证没有 lib 产物时的 example。分发验收还应使用真实 tarball 验证根入口和 `/files` 的 browser 条件。
 
 ## 交付配置与检查
 
-共享 CI、发布配置和检查工具由 `github-delivery` 的模板与工具维护。Unif 组织值由 `code-delivery` 的 `assets/organization.json` 维护，接入时落实为本库 `.github/organization.json`，记录组织、包名规则、Pages 地址、发布 App 身份及远端设置。工具运行时读取项目文件，不依赖其他技能的安装目录；适用技能按当前任务独立选择。
+共享 CI、发布配置和检查工具由 `uni-github-delivery` 的模板与工具维护。Unif 组织值由 `unif-code-delivery` 的 `assets/organization.json` 维护，接入时落实为本库 `.github/organization.json`，记录组织、包名规则、Pages 地址、发布 App 身份及远端设置。工具运行时读取项目文件，不依赖其他技能的安装目录；适用技能按当前任务独立选择。
 
 在仓库根目录按阶段执行：
 
