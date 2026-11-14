@@ -15,7 +15,7 @@ description: 工程标准、真实消费者、文档同源与分层验证。
 
 模板存在不证明远端规则、CI、npm 发布或文档部署已经完成；各项交付按组织流程分别读取实际结果。本库包含 Docusaurus 文档站，没有自有 native 源码。
 
-通用规范使用 `uni-skills`：`uni-code-organization` 说明目录与文件组织，`uni-rn-dev` 说明 RN 实现要求，`uni-rn-library` 说明独立库与消费者验证，`uni-documentation` 说明文档与文档站维护。Unif 的设计、测试、审查和交付按 `unif-portal-dev-skills` 对应技能执行；本库接口与行为以公开类型和有效契约为准。
+通用规范使用 `uni-skills`：`uni-code-organization` 说明目录与文件组织，`uni-rn-dev` 说明 RN 实现要求，`uni-rn-library` 说明独立库与消费者验证，`uni-documentation` 说明文档与文档站维护。查阅本库接口和接入要求时，可从[Unif 技能市场](https://github.com/unif-skill/unif-portal-dev-skills#安装与使用)单独安装 `unif-logger` 插件。Unif 的设计、测试、审查和交付按 `unif-portal-dev-skills` 对应技能执行；本库接口与行为以公开类型和有效契约为准。
 
 ## 实现归属
 
