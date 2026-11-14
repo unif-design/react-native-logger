@@ -26,7 +26,12 @@ import { captureConsole } from './captureConsole';
 export function installLogging(options: LoggingOptions): LogRuntime {
   const current = readLogRuntime();
   if (current) return current;
-  const { files, environment, consoleTimeZone = 'UTC' } = options;
+  const {
+    files,
+    environment,
+    consoleTimeZone = 'UTC',
+    consoleTimeFormat = 'iso',
+  } = options;
   const backend = options.backend ?? defaultBackend;
   const now = options.now ?? Date.now;
   const monotonicNow = options.monotonicNow ?? (() => performance.now());
@@ -36,6 +41,9 @@ export function installLogging(options: LoggingOptions): LogRuntime {
   try {
     if (consoleTimeZone !== 'UTC' && consoleTimeZone !== 'Asia/Shanghai') {
       throw new TypeError('Invalid console time zone');
+    }
+    if (consoleTimeFormat !== 'iso' && consoleTimeFormat !== 'datetime') {
+      throw new TypeError('Invalid console time format');
     }
     policy = prepareLoggingPolicy(options.policy);
     runId = options.createId();
@@ -314,7 +322,11 @@ export function installLogging(options: LoggingOptions): LogRuntime {
             ? pending.get(payload as DiagnosticRecord)
             : undefined;
           return delivery
-            ? formatLogLine(delivery.serialized.record, consoleTimeZone)
+            ? formatLogLine(
+                delivery.serialized.record,
+                consoleTimeZone,
+                consoleTimeFormat,
+              )
             : undefined;
         },
         options.console !== undefined,

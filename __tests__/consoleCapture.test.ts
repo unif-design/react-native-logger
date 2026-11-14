@@ -375,6 +375,42 @@ test.each(['', 'Asia/Tokyo', null, 480])(
   },
 );
 
+test('安装时固定简洁时间格式，文件和复制诊断保留 UTC 毫秒', async () => {
+  const setup = fixture();
+  const options = {
+    ...setup.options,
+    policy: TEST_POLICY,
+    consoleTimeZone: 'Asia/Shanghai' as const,
+    consoleTimeFormat: 'datetime' as 'iso' | 'datetime',
+    now: () => Date.UTC(2026, 10, 14, 1, 34, 37, 486),
+  };
+  handle = installLogging(options);
+  await handle.setOwner(null);
+  options.consoleTimeFormat = 'iso';
+  const report = createLogger('module').captureError('failed');
+  expect(setup.originals.error.mock.calls[0][0]).toMatch(
+    /^2026-11-14 09:34:37 ERROR /,
+  );
+  expect(setup.records()[0].timestamp).toBe('2026-11-14T01:34:37.486Z');
+  expect(JSON.parse(report!).timestamp).toBe('2026-11-14T01:34:37.486Z');
+  expect(setup.records()).toHaveLength(1);
+});
+
+test.each(['', 'YYYY-MM-DD', null, 480])(
+  '无效控制台时间格式 %s 在安装时拒绝',
+  (consoleTimeFormat) => {
+    const setup = fixture();
+    expect(() => {
+      handle = installLogging({
+        ...setup.options,
+        policy: TEST_POLICY,
+        consoleTimeFormat: consoleTimeFormat as never,
+      });
+    }).toThrow('Invalid console time format');
+    expect(getLogStatus().installed).toBe(false);
+  },
+);
+
 test('正式包中文摘要与技术明细同时交付控制台和文件，原始用户信息不进入任何输出', async () => {
   const setup = fixture(false);
   handle = installLogging({

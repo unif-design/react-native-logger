@@ -2,6 +2,7 @@ import type { LogLevel, Logger, LogTransport } from './backend/types';
 
 export type { LogLevel } from './backend/types';
 export type LogConsoleTimeZone = 'UTC' | 'Asia/Shanghai';
+export type LogConsoleTimeFormat = 'iso' | 'datetime';
 export type LogTrigger = 'user' | 'startup' | 'background' | 'h5' | 'system';
 export type LogOutcome =
   | 'success'
@@ -151,6 +152,8 @@ export interface LoggingOptions {
   console?: ConsoleCaptureOptions;
   /** 仅控制可读日志展示；结构化 timestamp 始终为 UTC。 */
   consoleTimeZone?: LogConsoleTimeZone;
+  /** 可读控制台时间格式，默认 iso；datetime 为 YYYY-MM-DD HH:mm:ss。 */
+  consoleTimeFormat?: LogConsoleTimeFormat;
   now?: () => number;
   monotonicNow?: () => number;
 }

@@ -4,6 +4,7 @@ import type {
   LogSource,
   LogValue,
   LogConsoleTimeZone,
+  LogConsoleTimeFormat,
 } from './types';
 
 function atom(value: LogValue | readonly LogValue[]): string {
@@ -19,12 +20,18 @@ function atom(value: LogValue | readonly LogValue[]): string {
 export function formatLogLine(
   record: DiagnosticRecord,
   timeZone: LogConsoleTimeZone = 'UTC',
+  timeFormat: LogConsoleTimeFormat = 'iso',
 ): string {
   let timestamp = atom(record.timestamp);
-  if (timeZone === 'Asia/Shanghai') {
-    const display = new Date(Date.parse(record.timestamp) + BEIJING_OFFSET_MS);
+  if (timeZone === 'Asia/Shanghai' || timeFormat === 'datetime') {
+    const offset = timeZone === 'Asia/Shanghai' ? BEIJING_OFFSET_MS : 0;
+    const display = new Date(Date.parse(record.timestamp) + offset);
     if (Number.isFinite(display.getTime())) {
-      timestamp = display.toISOString().replace(/Z$/, '+08:00');
+      const iso = display.toISOString();
+      timestamp =
+        timeFormat === 'datetime'
+          ? iso.slice(0, -5).replace('T', ' ')
+          : iso.replace(/Z$/, '+08:00');
     }
   }
   const parts = [
