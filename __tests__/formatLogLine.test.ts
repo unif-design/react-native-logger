@@ -6,6 +6,7 @@ import type { LogRecordInput } from '../src/types';
 function format(
   overrides: Partial<LogRecordInput> = {},
   timeZone?: 'UTC' | 'Asia/Shanghai',
+  timeFormat?: 'iso' | 'datetime',
 ) {
   const serialized = serializeLogRecord(
     {
@@ -26,7 +27,7 @@ function format(
     TEST_POLICY,
   );
   return {
-    line: formatLogLine(serialized!.record, timeZone),
+    line: formatLogLine(serialized!.record, timeZone, timeFormat),
     record: serialized!.record,
   };
 }
@@ -117,8 +118,31 @@ test('默认及显式 UTC 都保留原显示', () => {
   expect(format({ timestamp }, 'UTC').line).toBe(format({ timestamp }).line);
 });
 
+test.each([
+  ['2026-11-14T01:34:37.486Z', 'Asia/Shanghai', '2026-11-14 09:34:37'],
+  ['2026-12-31T20:30:00.999Z', 'Asia/Shanghai', '2027-01-01 04:30:00'],
+  ['2028-02-28T20:00:00.000Z', 'Asia/Shanghai', '2028-02-29 04:00:00'],
+  ['2026-11-14T01:34:37.486Z', 'UTC', '2026-11-14 01:34:37'],
+] as const)(
+  '简洁时间格式 %s %s，结构化时间不变',
+  (timestamp, timeZone, display) => {
+    const result = format({ timestamp }, timeZone, 'datetime');
+    expect(result.line.startsWith(`${display} WARN `)).toBe(true);
+    expect(result.record.timestamp).toBe(timestamp);
+  },
+);
+
+test('显式 ISO 格式保留既有北京时间显示', () => {
+  expect(format({}, 'Asia/Shanghai', 'iso').line).toBe(
+    format({}, 'Asia/Shanghai').line,
+  );
+});
+
 test('无法解析的时间安全保留，不能阻断日志展示', () => {
   expect(format({ timestamp: 'unavailable' }, 'Asia/Shanghai').line).toMatch(
+    /^unavailable WARN /,
+  );
+  expect(format({ timestamp: 'unavailable' }, 'UTC', 'datetime').line).toMatch(
     /^unavailable WARN /,
   );
 });

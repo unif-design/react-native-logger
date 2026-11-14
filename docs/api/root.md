@@ -32,6 +32,7 @@ policy: {
 | `backend`         | `LogBackend`                 | 注入已有后端；省略使用内部实现                                |
 | `console`         | `ConsoleCaptureOptions`      | 显式连接实际 console transport，并启用原始 console 采集       |
 | `consoleTimeZone` | `'UTC'` 或 `'Asia/Shanghai'` | 默认 UTC，仅影响可读控制台展示                                |
+| `consoleTimeFormat` | `'iso'` 或 `'datetime'` | 默认 ISO；datetime 按所选时区显示 `YYYY-MM-DD HH:mm:ss`，仅影响可读控制台 |
 | `now`             | `() => number`               | 可注入毫秒时间源，默认 `Date.now`                             |
 | `monotonicNow`    | `() => number`               | 可注入单调时间源，默认 `performance.now`，用于操作耗时        |
 

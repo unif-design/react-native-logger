@@ -33,6 +33,7 @@ export type {
   LogEnvironment,
   ConsoleCaptureOptions,
   LogConsoleTimeZone,
+  LogConsoleTimeFormat,
   FailureDiagnostics,
   LogMetadata,
   LogStatus,
