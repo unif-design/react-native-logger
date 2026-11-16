@@ -19,6 +19,7 @@ it('根入口提供安装、记录与脱敏，加载时不触发原生文件 SDK
       'createLogger',
       'createOperationContext',
       'defaultLogBackend',
+      'getErrorDiagnostics',
       'getFailureDiagnostics',
       'getLogRetentionPolicy',
       'getLogStatus',

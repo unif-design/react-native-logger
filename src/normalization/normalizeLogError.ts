@@ -7,6 +7,8 @@ import { readLogErrorName } from './readLogErrorName';
 import { readLogErrorStack } from './readLogErrorStack';
 import { readLogProperty } from './readLogProperty';
 import { redactLogStack } from './redactLogStack';
+import { readTechnicalErrorMessage } from './readTechnicalErrorMessage';
+import { normalizeLogSource } from './normalizeLogSource';
 import type { NormalizationState } from './types';
 
 export function normalizeLogError(
@@ -24,11 +26,7 @@ export function normalizeLogError(
   }
   if (typeof reason !== 'object' || reason === null) {
     state.truncated = true;
-    const message =
-      typeof reason === 'boolean' ||
-      (typeof reason === 'number' && Number.isFinite(reason))
-        ? String(reason)
-        : `[${reason === null ? 'null' : typeof reason}]`;
+    const message = `[${reason === null ? 'null' : typeof reason}]`;
     return { name: 'NonError', message };
   }
   if (seen.has(reason)) {
@@ -40,12 +38,57 @@ export function normalizeLogError(
   const readState: NormalizationState = { truncated: false };
   const message = readLogProperty(reason, 'message', readState);
   const name = readLogErrorName(reason, readState);
+  const technical = readTechnicalErrorMessage(message);
+  const messageTruncated =
+    (typeof message === 'string' &&
+      message.length > NORMALIZATION_LIMITS.stringCharacters) ||
+    technical?.truncated ||
+    readLogProperty(reason, 'messageStatus', state) === 'truncated';
+  const marker =
+    typeof message === 'string' &&
+    [
+      '[REDACTED]',
+      '[unserializable]',
+      '[cause limit]',
+      '[circular]',
+      '[number]',
+      '[boolean]',
+      '[null]',
+      '[undefined]',
+      '[symbol]',
+      '[bigint]',
+      '[function]',
+    ].includes(message)
+      ? message
+      : undefined;
+  if (
+    readLogProperty(reason, 'truncated', state) === true ||
+    (marker && marker !== '[REDACTED]')
+  )
+    state.truncated = true;
   const error: DiagnosticError = {
     name: Object.hasOwn(FAILURE_ERROR_TYPES, name) ? name : 'Error',
-    message: typeof message === 'string' ? '[REDACTED]' : UNSERIALIZABLE_TEXT,
+    message:
+      technical?.message ??
+      marker ??
+      (typeof message === 'string' ? '[REDACTED]' : UNSERIALIZABLE_TEXT),
+    ...(technical || messageTruncated
+      ? ({
+          messageStatus: messageTruncated ? 'truncated' : 'technical',
+        } as const)
+      : {}),
   };
+  if (messageTruncated) state.truncated = true;
   if (typeof message !== 'string') {
     state.truncated = true;
+  }
+  const projectedSource = normalizeLogSource(
+    readLogProperty(reason, 'source', state),
+    state,
+  );
+  if (projectedSource) {
+    error.source = projectedSource;
+    state.errorSource = projectedSource;
   }
   const code = readLogProperty(reason, 'code', state);
   if (
@@ -60,13 +103,14 @@ export function normalizeLogError(
           /^[a-z][a-z_]*\.(?:[a-z][a-z_]*\.){0,2}(?:failed|failure|unavailable|invalid_[a-z_]+)$/.test(
             code,
           );
-    if (safeCode) error.code = redactLogText(String(code), state);
+    if (safeCode)
+      error.code = typeof code === 'number' ? code : redactLogText(code, state);
   } else if (code !== undefined) {
     state.truncated = true;
   }
   const stack = readLogErrorStack(reason, readState);
   if (readState.truncated) state.truncated = true;
-  else {
+  else if (!projectedSource) {
     const source = getLogStackSource(stack, name, message, readState);
     if (source) state.errorSource = source;
   }
@@ -79,5 +123,7 @@ export function normalizeLogError(
   if (cause !== undefined) {
     error.cause = normalizeLogError(cause, state, seen, depth + 1);
   }
+  // 已确认的安全投影比再次解析脱敏堆栈更完整，子原因也不能将其降级。
+  if (projectedSource) state.errorSource = projectedSource;
   return error;
 }

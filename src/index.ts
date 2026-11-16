@@ -11,6 +11,7 @@ export { createLogger } from './createLogger';
 export { createOperationContext } from './createOperationContext';
 export { getLogStatus } from './getLogStatus';
 export { getFailureDiagnostics } from './getFailureDiagnostics';
+export { getErrorDiagnostics } from './getErrorDiagnostics';
 export { getLogRetentionPolicy } from './getLogRetentionPolicy';
 export type {
   AppLogger,

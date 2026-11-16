@@ -3,6 +3,7 @@ import { NORMALIZATION_LIMITS } from './normalization/constants';
 import { readLogProperty } from './normalization/readLogProperty';
 import type { FailureDiagnostics } from './types';
 import { getLogSource } from './normalization/getLogSource';
+import { readTechnicalErrorMessage } from './normalization/readTechnicalErrorMessage';
 
 export function getFailureDiagnostics(error: unknown): FailureDiagnostics {
   const result: FailureDiagnostics = {
@@ -50,10 +51,14 @@ export function getFailureDiagnostics(error: unknown): FailureDiagnostics {
             Math.abs(code) <= 2147483647
           ? code
           : undefined;
+    const technical = readTechnicalErrorMessage(
+      readLogProperty(current, 'message', state),
+    );
+    if (technical?.truncated) state.truncated = true;
     const reason =
       typeof sourceCode === 'string'
         ? FAILURE_CODES[sourceCode]
-        : (FAILURE_ERROR_TYPES[errorType] ?? 'unknown');
+        : (technical?.reason ?? FAILURE_ERROR_TYPES[errorType] ?? 'unknown');
     if (depth === 0) {
       result.errorType = errorType;
       if (sourceCode !== undefined) result.sourceCode = sourceCode;
