@@ -1,3 +1,13 @@
+import { captureLogDispatch } from '../backend/logger';
+import { getLogSource } from '../normalization/getLogSource';
+import {
+  cancelLogTasks,
+  enqueueLogTask,
+  installLogTaskScope,
+  isExecutingLogTask,
+  readActiveLogTaskScope,
+} from './logTasks';
+import type { LogTaskScope } from './logTasks';
 import * as defaultBackend from '../backend';
 import { prepareLoggingPolicy } from '../prepareLoggingPolicy';
 import type { LogRecord as SdkLogRecord } from '../backend/types';
@@ -15,7 +25,8 @@ import type {
   LogLevel,
   LogMetadata,
   LogFileStatus,
-  LogSource,
+  LogMetadataInput,
+  LogSnapshot,
   LoggingOptions,
   LoggingPolicy,
   SerializedLogRecord,
@@ -62,6 +73,10 @@ export function installLogging(options: LoggingOptions): LogRuntime {
   const pending = new WeakMap<DiagnosticRecord, LogDelivery>();
   let identityEpoch = `${runId}:identity:0`;
   let owner: string | null | undefined;
+  let initialStartupEpoch: string | undefined;
+  let ownerBinding: Promise<void> = Promise.resolve();
+  let bindingEpoch: string | undefined;
+  let boundEpoch: string | undefined;
   let identitySequence = 0;
   let sequence = 0;
   let operationSequence = 0;
@@ -70,6 +85,7 @@ export function installLogging(options: LoggingOptions): LogRuntime {
   let diagnostic: LogFileStatus['lastFailure'];
   let disposed = false;
   let releaseConsole = () => {};
+  let releaseTaskScope = () => {};
   const installedLevel = environment.development ? 'debug' : 'info';
 
   function fail(code: string, error?: unknown, expectedEpoch = identityEpoch) {
@@ -87,20 +103,27 @@ export function installLogging(options: LoggingOptions): LogRuntime {
     level: LogLevel,
     event: string,
     metadata: LogMetadata = {},
-    source?: LogSource,
+    source: ReturnType<typeof getLogSource> | undefined,
+    capture: {
+      identityEpoch: string;
+      startup: boolean;
+      timestamp: number;
+      durationAt: number;
+    },
   ) {
     const context = metadata.context;
     if (disposed || (level === 'debug' && !environment.development))
       return null;
     if (
       context &&
-      (context.runId !== runId || context.identityEpoch !== identityEpoch)
+      (context.runId !== runId ||
+        context.identityEpoch !== capture.identityEpoch)
     ) {
       droppedCount += 1;
       return null;
     }
     if (
-      owner === undefined &&
+      capture.startup &&
       !policy.startupScopes.some((value) => value === scope)
     ) {
       droppedCount += 1;
@@ -110,10 +133,10 @@ export function installLogging(options: LoggingOptions): LogRuntime {
       {
         ...environment,
         schemaVersion: 1,
-        timestamp: new Date(now()).toISOString(),
+        timestamp: new Date(capture.timestamp).toISOString(),
         sequence: ++sequence,
         runId,
-        identityEpoch,
+        identityEpoch: capture.identityEpoch,
         level,
         scope,
         event,
@@ -122,7 +145,7 @@ export function installLogging(options: LoggingOptions): LogRuntime {
               trigger: context.trigger,
               operationId: context.operationId,
               parentOperationId: context.parentOperationId,
-              durationMs: Math.max(0, monotonicNow() - context.startedAt),
+              durationMs: Math.max(0, capture.durationAt - context.startedAt),
             }
           : {}),
         phase: metadata.phase,
@@ -141,79 +164,220 @@ export function installLogging(options: LoggingOptions): LogRuntime {
     return result;
   }
 
-  function enqueue(serialized: SerializedLogRecord) {
+  function enqueue(serialized: SerializedLogRecord, startup: boolean) {
     files.append({
       line: serialized.line,
       bytes: serialized.bytes,
       identityEpoch: serialized.record.identityEpoch,
       level: serialized.record.level,
-      startup: owner === undefined,
+      startup,
     });
   }
 
+  function scopeFor(
+    epoch = identityEpoch,
+    startup = owner === undefined,
+  ): LogTaskScope {
+    return {
+      owner: runtime,
+      identityEpoch: epoch,
+      startup,
+      valid: () =>
+        !disposed &&
+        readLogRuntime() === runtime &&
+        (epoch === identityEpoch || (startup && epoch === initialStartupEpoch)),
+      dropped: () => {
+        droppedCount++;
+      },
+    };
+  }
   function transportLog(input: SdkLogRecord) {
-    try {
-      if (disposed) return;
-      const payload = input.args.find(
-        (value) =>
-          typeof value === 'object' &&
-          value !== null &&
-          pending.has(value as DiagnosticRecord),
-      ) as DiagnosticRecord | undefined;
-      if (payload) {
-        const delivery = pending.get(payload)!;
-        if (!delivery.enqueued) {
-          delivery.enqueued = true;
-          enqueue(delivery.serialized);
+    const collect = () => {
+      try {
+        if (disposed) return;
+        const payload = input.args.find(
+          (value) =>
+            typeof value === 'object' &&
+            value !== null &&
+            pending.has(value as DiagnosticRecord),
+        ) as DiagnosticRecord | undefined;
+        if (payload) {
+          const delivery = pending.get(payload)!;
+          if (!delivery.enqueued) {
+            delivery.enqueued = true;
+            enqueue(delivery.serialized, delivery.startup);
+          }
+          return;
         }
-        return;
-      }
-      // 不重收 App 日志，也不把 SDK 的任意 args 当成安全的业务上下文。
-      if (
-        input.scope.startsWith(APP_LOG_PREFIX) ||
-        !['warn', 'error'].includes(input.level)
-      )
-        return;
-      if (owner === undefined) {
-        droppedCount += 1;
-        return;
-      }
-      const serialized = normalize(
-        `sdk.${input.scope}`,
-        input.level,
-        input.level === 'error' ? 'sdk.error' : 'sdk.warning',
-        {
-          fields: {
-            ...getFailureDiagnostics(
-              input.args.find((value) => value instanceof Error),
-            ),
+        if (
+          input.scope.startsWith(APP_LOG_PREFIX) ||
+          !['warn', 'error'].includes(input.level)
+        )
+          return;
+        const scope = readActiveLogTaskScope();
+        if (!scope || scope.owner !== runtime || scope.startup) {
+          droppedCount++;
+          return;
+        }
+        const error = input.args.find((value) => value instanceof Error);
+        const serialized = normalize(
+          `sdk.${input.scope}`,
+          input.level,
+          input.level === 'error' ? 'sdk.error' : 'sdk.warning',
+          { fields: { ...getFailureDiagnostics(error) }, error },
+          undefined,
+          {
+            identityEpoch: scope.identityEpoch!,
+            startup: false,
+            timestamp: input.ts,
+            durationAt: monotonicNow(),
           },
-          error: input.args.find((value) => value instanceof Error),
-        },
-      );
-      if (serialized) enqueue(serialized);
+        );
+        if (serialized) enqueue(serialized, false);
+      } catch (error) {
+        fail('logger.transport_failed', error);
+      }
+    };
+    if (isExecutingLogTask()) collect();
+    else enqueueLogTask(collect, scopeFor());
+  }
+
+  function scopeError(expectedEpoch: string) {
+    return Object.assign(new Error('Logging unavailable'), {
+      code: disposed
+        ? 'logger.files.disposed'
+        : expectedEpoch !== identityEpoch
+          ? 'logger.files.identity_changed'
+          : 'logger.files.not_ready',
+    });
+  }
+  function management<T>(
+    operation: () => T | Promise<T>,
+    releaseLate?: (value: T) => void | Promise<void>,
+    snapshot?: LogSnapshot,
+  ): Promise<T> {
+    const expectedEpoch = identityEpoch;
+    try {
+      if (disposed || (snapshot && snapshot.identityEpoch !== expectedEpoch))
+        return Promise.reject(
+          Object.assign(new Error('Log snapshot identity changed'), {
+            code: disposed
+              ? 'logger.files.disposed'
+              : 'logger.files.identity_changed',
+          }),
+        );
     } catch (error) {
-      fail('logger.transport_failed', error);
+      return Promise.reject(error);
     }
+    return enqueueLogTask(
+      async () => {
+        try {
+          if (
+            disposed ||
+            expectedEpoch !== identityEpoch ||
+            (owner !== undefined && boundEpoch !== expectedEpoch)
+          )
+            throw scopeError(expectedEpoch);
+          const value = await operation();
+          if (disposed || expectedEpoch !== identityEpoch) {
+            try {
+              await releaseLate?.(value);
+            } catch (error) {
+              fail('logger.snapshot_release_failed', error, expectedEpoch);
+            }
+            throw scopeError(expectedEpoch);
+          }
+          return { value };
+        } catch (error) {
+          return { error };
+        }
+      },
+      scopeFor(),
+      true,
+    ).then((result) => {
+      if (!result) throw scopeError(expectedEpoch);
+      if ('error' in result) throw result.error;
+      return result.value;
+    });
   }
 
   const runtime: LogRuntime = {
-    emit(scope, level, event, metadata, source) {
+    emit(
+      scope,
+      level,
+      event,
+      metadata?: LogMetadataInput,
+      source?: Error,
+      suppressConsole = false,
+    ) {
       try {
-        const serialized = normalize(scope, level, event, metadata, source);
-        if (!serialized) return null;
-        pending.set(serialized.record, { serialized, enqueued: false });
-        const scopeKey = serialized.record.scope;
-        let logger = loggers.get(scopeKey);
-        if (!logger) {
-          logger = backend.createLogger(`${APP_LOG_PREFIX}${scopeKey}`);
-          loggers.set(scopeKey, logger);
+        if (disposed || (level === 'debug' && !environment.development))
+          return Promise.resolve(null);
+        if (
+          owner === undefined &&
+          !policy.startupScopes.some((value) => value === scope)
+        ) {
+          droppedCount++;
+          return Promise.resolve(null);
         }
-        logger[level](serialized.record.event, serialized.record);
-        return serialized.line;
-      } catch (error) {
-        fail('logger.dispatch_failed', error);
-        return null;
+        const captured = {
+          identityEpoch,
+          startup: owner === undefined,
+          timestamp: now(),
+          durationAt: monotonicNow(),
+        };
+        const dispatch =
+          backend === defaultBackend ? captureLogDispatch() : undefined;
+        return enqueueLogTask(
+          () => {
+            try {
+              const value =
+                typeof metadata === 'function' ? metadata() : metadata;
+              const serialized = normalize(
+                scope,
+                level,
+                event,
+                value,
+                source
+                  ? getLogSource(source, suppressConsole ? 1 : 2)
+                  : undefined,
+                captured,
+              );
+              if (!serialized) return null;
+              pending.set(serialized.record, {
+                serialized,
+                enqueued: false,
+                startup: captured.startup,
+                suppressConsole,
+              });
+              if (dispatch)
+                dispatch({
+                  level,
+                  scope: `${APP_LOG_PREFIX}${serialized.record.scope}`,
+                  message: serialized.record.event,
+                  args: [serialized.record],
+                  ts: captured.timestamp,
+                });
+              else {
+                const scopeKey = serialized.record.scope;
+                let logger = loggers.get(scopeKey);
+                if (!logger) {
+                  logger = backend.createLogger(`${APP_LOG_PREFIX}${scopeKey}`);
+                  loggers.set(scopeKey, logger);
+                }
+                logger[level](serialized.record.event, serialized.record);
+              }
+              return disposed ? null : serialized.line;
+            } catch (error) {
+              fail('logger.dispatch_failed', error);
+              return null;
+            }
+          },
+          scopeFor(captured.identityEpoch, captured.startup),
+        );
+      } catch {
+        fail('logger.dispatch_failed');
+        return Promise.resolve(null);
       }
     },
     context(trigger, parent) {
@@ -245,39 +409,70 @@ export function installLogging(options: LoggingOptions): LogRuntime {
           : {}),
       };
     },
-    async setOwner(value) {
-      if (disposed) return;
-      if (value === owner && files.getStatus().state !== 'blocked') return;
+    setOwner(value) {
+      if (disposed) return Promise.resolve();
+      if (
+        value === owner &&
+        (bindingEpoch === identityEpoch ||
+          (boundEpoch === identityEpoch &&
+            files.getStatus().state !== 'blocked'))
+      )
+        return ownerBinding;
+      const previousOwner = owner;
+      if (previousOwner === undefined) initialStartupEpoch = identityEpoch;
       if (value !== owner) {
         owner = value;
         identityEpoch = `${runId}:identity:${++identitySequence}`;
         diagnostic = undefined;
       }
       const expectedEpoch = identityEpoch;
-      try {
-        await files.setOwner(value, identityEpoch);
-      } catch (error) {
-        fail('logger.owner_failed', error, expectedEpoch);
-      }
+      bindingEpoch = expectedEpoch;
+      ownerBinding = enqueueLogTask(
+        async () => {
+          try {
+            // 旧epoch未处理任务已失效；已落缓冲的旧记录仍写回原分区。
+            if (previousOwner !== undefined) await files.flush();
+            if (disposed) return;
+            await files.setOwner(value, expectedEpoch);
+            if (files.getStatus().state === 'ready') boundEpoch = expectedEpoch;
+            initialStartupEpoch = undefined;
+          } catch (error) {
+            fail('logger.owner_failed', error, expectedEpoch);
+          }
+        },
+        scopeFor(expectedEpoch, value === undefined),
+        true,
+      ).then((result) => {
+        if (bindingEpoch === expectedEpoch) bindingEpoch = undefined;
+        if (result === null && !disposed && expectedEpoch === identityEpoch)
+          fail('logger.owner_failed');
+      });
+      return ownerBinding;
     },
-    async flush() {
-      if (disposed) return;
+    flush() {
       const expectedEpoch = identityEpoch;
-      try {
-        await files.flush();
-      } catch (error) {
+      return management(() => files.flush()).catch((error) => {
         fail('logger.flush_failed', error, expectedEpoch);
-      }
+      });
     },
-    readSummary: () => files.readSummary(),
-    clear: () => files.clear(),
-    createSnapshot: () => files.createSnapshot(),
-    readSnapshot: (snapshot) => files.readSnapshot(snapshot),
-    releaseSnapshot: (snapshot) => files.releaseSnapshot(snapshot),
-    takeSnapshotFile: (snapshot) => files.takeSnapshotFile(snapshot),
+    readSummary: () => management(() => files.readSummary()),
+    clear: () => management(() => files.clear()),
+    createSnapshot: () => management(() => files.createSnapshot()),
+    readSnapshot: (snapshot) =>
+      management(() => files.readSnapshot(snapshot), undefined, snapshot),
+    releaseSnapshot: (snapshot) =>
+      management(() => files.releaseSnapshot(snapshot), undefined, snapshot),
+    takeSnapshotFile: (snapshot) =>
+      management(
+        () => files.takeSnapshotFile(snapshot),
+        (file) => file.release(),
+        snapshot,
+      ),
     dispose() {
       if (disposed) return;
       disposed = true;
+      cancelLogTasks(runtime);
+      releaseTaskScope();
       loggers.clear();
       if (readLogRuntime() === runtime) setLogRuntime(null);
       for (const release of [
@@ -302,6 +497,7 @@ export function installLogging(options: LoggingOptions): LogRuntime {
     backend.setLogLevel(installedLevel);
     backend.addTransport({ id: LOG_TRANSPORT_ID, log: transportLog });
     setLogRuntime(runtime);
+    releaseTaskScope = installLogTaskScope(() => scopeFor());
     const consoleOutput =
       options.console ??
       (options.backend
@@ -321,15 +517,30 @@ export function installLogging(options: LoggingOptions): LogRuntime {
           const delivery = payload
             ? pending.get(payload as DiagnosticRecord)
             : undefined;
-          return delivery
-            ? formatLogLine(
-                delivery.serialized.record,
-                consoleTimeZone,
-                consoleTimeFormat,
-              )
-            : undefined;
+          return delivery?.suppressConsole
+            ? null
+            : delivery
+              ? formatLogLine(
+                  delivery.serialized.record,
+                  consoleTimeZone,
+                  consoleTimeFormat,
+                )
+              : undefined;
         },
         options.console !== undefined,
+        (method, args, source) => {
+          runtime.emit(
+            'console',
+            method === 'log' ? 'info' : method,
+            `console.${method}`,
+            () => {
+              const error = args.find((value) => value instanceof Error);
+              return { fields: { ...getFailureDiagnostics(error) }, error };
+            },
+            source,
+            true,
+          );
+        },
       );
     return runtime;
   } catch (error) {

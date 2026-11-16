@@ -26,7 +26,7 @@ React Native 结构化日志库，提供操作关联、敏感信息脱敏、文�
 2. iOS 同步 Pods，再重新构建原生应用。
 3. 应用按[初始化示例](docs/quick-start.md#应用安装一次)调用一次 `installLogging`，提供日志策略、环境、唯一标识函数和文件存储，并保存返回句柄。使用 `setOwner(null)` 绑定匿名身份，登录后传入应用的身份摘要。
 
-组件库只记录日志，由应用统一安装运行时。未安装时普通记录会静默返回，`captureError` 返回 `null`，因此应先完成上面的初始化。
+组件库只记录日志，由应用统一安装运行时。未安装时普通记录会静默返回，`captureError` 异步解析为 `null`，因此应先完成上面的初始化。
 
 ## 记录事件
 
@@ -41,7 +41,7 @@ log.warn('capture.unavailable', { code: 'camera.permission_denied' });
 
 `camera` 是日志模块，`capture.unavailable` 是事件。需要记录附加字段时，由应用在安装策略中设置白名单，详见[结构化记录](docs/api/root.md#createloggerscope)。默认不采集全局 console。
 
-应用负责身份变化、后台 `flush()` 和结束使用时的 `dispose()`。快照文件应在接收方完成读取后释放，具体交接与失败处理见[文件 API](docs/api/files.md)。`captureError` 返回的 JSONL 文本不代表日志已落盘。
+应用负责身份变化、后台 `flush()` 和结束使用时的 `dispose()`。快照文件应在接收方完成读取后释放，具体交接与失败处理见[文件 API](docs/api/files.md)。`captureError` 异步返回的 JSONL 文本不代表日志已落盘。普通记录、SDK 分发和已接入 console 的输出统一通过库内有界宏任务队列处理，业务不等待日志格式化或写入。
 
 ## 更多用法
 

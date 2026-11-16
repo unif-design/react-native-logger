@@ -53,8 +53,8 @@ description: 控制台、JSONL、UTC 时间与脱敏的唯一格式契约。
 
 ## 文件与复制诊断
 
-文件为每行一个 JSON 对象的 JSONL，schemaVersion 保持 1；captureError 返回同一次规范化结果。保留 timestamp、sequence、service、level、scope、event、运行与身份周期、环境、操作关联、fields 和经过脱敏的 error。位置使用 source／errorSource 字段，控制台仅将它们转换成可检索的文本名称。
+文件为每行一个 JSON 对象的 JSONL，schemaVersion 保持 1；captureError 异步返回同一次规范化结果。保留 timestamp、sequence、service、level、scope、event、运行与身份周期、环境、操作关联、fields 和经过脱敏的 error。位置使用 source／errorSource 字段，控制台仅将它们转换成可检索的文本名称。
 
-Warn／Error／captureError 有界提取调用点，Info／Debug 不为补位置新建堆栈。原因链最多四层，循环、访问器或裁剪明确标记；绝对路径、认证材料和非白名单原始数据不进入记录。单条上限 8 KiB，裁剪时保留关联与核心字段并标记 truncated。
+Warn／Error／captureError 在现场捕获必要调用点，异步解析并规范化；timestamp 和操作耗时按提交现场固定，排队等待不计入业务耗时。Info／Debug 不为补位置新建堆栈。原因链最多四层，循环、访问器或裁剪明确标记；绝对路径、认证材料和非白名单原始数据不进入记录。单条上限 8 KiB，裁剪时保留关联与核心字段并标记 truncated。
 
 应用迁移继续传入原 service 及既有策略，保持原目录和身份摘要。组件库仅提供自己的 scope、event 与安全上下文，不创建另一套日志格式。

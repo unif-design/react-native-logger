@@ -37,6 +37,7 @@ export type {
   LogConsoleTimeFormat,
   FailureDiagnostics,
   LogMetadata,
+  LogMetadataInput,
   LogStatus,
   LogSnapshot,
   OperationContext,

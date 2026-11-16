@@ -1,11 +1,10 @@
 import type {
   LoggingHandle,
-  LogMetadata,
+  LogMetadataInput,
   LogLevel,
   LogStatus,
   LogTrigger,
   OperationContext,
-  LogSource,
   SerializedLogRecord,
 } from '../types';
 
@@ -14,9 +13,10 @@ export interface LogRuntime extends LoggingHandle {
     scope: string,
     level: LogLevel,
     event: string,
-    metadata?: LogMetadata,
-    source?: LogSource,
-  ): string | null;
+    metadata?: LogMetadataInput,
+    source?: Error,
+    suppressConsole?: boolean,
+  ): Promise<string | null>;
   context(trigger: LogTrigger, parent?: OperationContext): OperationContext;
   status(): LogStatus;
 }
@@ -24,4 +24,6 @@ export interface LogRuntime extends LoggingHandle {
 export interface LogDelivery {
   serialized: SerializedLogRecord;
   enqueued: boolean;
+  startup: boolean;
+  suppressConsole?: boolean;
 }

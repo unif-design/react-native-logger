@@ -93,22 +93,26 @@ afterEach(() => {
   handle = undefined;
 });
 
-test('日志SDK分发失败只更新安全健康诊断，不抛错或递归写入', () => {
+test('日志SDK分发失败只更新安全健康诊断，不抛错或递归写入', async () => {
   const setup = fixture();
   setup.backend.createLogger = () => {
     throw Object.assign(new Error('PRIVATE_SDK'), { code: 'EIO' });
   };
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
+  await settleLogs();
   expect(() => createLogger('bootstrap').warn('failed')).not.toThrow();
+  await settleLogs();
   expect(getLogStatus()).toMatchObject({
     lastFailureCode: 'logger.dispatch_failed',
     lastFailure: { reason: 'io_error', sourceCode: 'EIO' },
   });
+
   expect(setup.writes).toEqual([]);
+
   expect(JSON.stringify(getLogStatus())).not.toContain('PRIVATE_');
 });
 
-test('日志初始化失败仍抛原异常，未安装时可读取脱敏原因', () => {
+test('日志初始化失败仍抛原异常，未安装时可读取脱敏原因', async () => {
   const setup = fixture();
   const error = Object.assign(new Error('PRIVATE_RANDOM_SOURCE'), {
     code: 'EACCES',
@@ -116,41 +120,54 @@ test('日志初始化失败仍抛原异常，未安装时可读取脱敏原因',
   setup.options.createId = () => {
     throw error;
   };
+  await settleLogs();
   expect(() =>
     installLogging({ ...setup.options, policy: TEST_POLICY }),
   ).toThrow(error);
+  await settleLogs();
   expect(getLogStatus()).toMatchObject({
     installed: false,
     lastFailureCode: 'logger.initialize_failed',
     lastFailure: { reason: 'permission_denied' },
   });
+
   expect(JSON.stringify(getLogStatus())).not.toContain('PRIVATE_');
 });
 
 test('旧身份的日志IO迟到失败不把新增诊断带入新身份', async () => {
   const setup = fixture();
   let reject!: (error: unknown) => void;
+  let started!: () => void;
+  const beginning = new Promise<void>((resolve) => {
+    started = resolve;
+  });
   jest.mocked(setup.files.setOwner).mockImplementationOnce(
     () =>
       new Promise((_, fail) => {
         reject = fail;
+        started();
       }),
   );
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   const old = handle.setOwner('old');
-  await handle.setOwner('new');
+  await beginning;
+  const next = handle.setOwner('new');
   reject(Object.assign(new Error('PRIVATE_OLD_OWNER'), { code: 'EACCES' }));
   await old;
+  await next;
+  await settleLogs();
   expect(getLogStatus().lastFailure).toBeUndefined();
 });
 
-test('诊断时钟失败不能让业务创建操作上下文失败，健康状态仍可排查', () => {
+test('诊断时钟失败不能让业务创建操作上下文失败，健康状态仍可排查', async () => {
   const setup = fixture();
   setup.options.monotonicNow = () => {
     throw Object.assign(new Error('PRIVATE_CLOCK'), { code: 'EIO' });
   };
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
+  await settleLogs();
   expect(() => createOperationContext('user')).not.toThrow();
+  await settleLogs();
   expect(getLogStatus()).toMatchObject({
     lastFailureCode: 'logger.context_failed',
     lastFailure: { reason: 'io_error' },
@@ -172,17 +189,22 @@ test('释放后的句柄和迟到SDK事件不再触及文件，外部日志级�
     args: [],
     ts: Date.now(),
   });
+  await settleLogs();
   expect(setup.files.setOwner).not.toHaveBeenCalled();
+
   expect(setup.files.flush).not.toHaveBeenCalled();
+
   expect(setup.writes).toEqual([]);
+
   expect(setup.backend.getLogLevel()).toBe('error');
 });
 
-test('新失败没有原始原因时不复用上一失败的安全细节', () => {
+test('新失败没有原始原因时不复用上一失败的安全细节', async () => {
   const setup = fixture();
   setup.options.createId = () => {
     throw Object.assign(new Error('old'), { code: 'EACCES' });
   };
+  await settleLogs();
   expect(() =>
     installLogging({ ...setup.options, policy: TEST_POLICY }),
   ).toThrow();
@@ -190,13 +212,15 @@ test('新失败没有原始原因时不复用上一失败的安全细节', () =>
   next.options.createId = () => {
     throw undefined;
   };
+  await settleLogs();
   expect(() =>
     installLogging({ ...next.options, policy: TEST_POLICY }),
   ).toThrow();
+  await settleLogs();
   expect(getLogStatus().lastFailure).toBeUndefined();
 });
 
-test('错误诊断返回交给控制台和文件的同一条完整脱敏日志，只记录一次', () => {
+test('错误诊断返回交给控制台和文件的同一条完整脱敏日志，只记录一次', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   const context = createOperationContext('startup');
@@ -212,19 +236,28 @@ test('错误诊断返回交给控制台和文件的同一条完整脱敏日志�
     value:
       'Error: Authorization: Bearer PRIVATE_TOKEN\n at request (/fixture/request.ts:2:1)',
   });
-  const report = createLogger('bootstrap').captureError('startup_failed', {
-    context,
-    phase: 'services',
-    code: error.code,
-    error,
-    fields: { password: 'PRIVATE_PASSWORD', count: 1 },
-  });
+  const report = await createLogger('bootstrap').captureError(
+    'startup_failed',
+    {
+      context,
+      phase: 'services',
+      code: error.code,
+      error,
+      fields: { password: 'PRIVATE_PASSWORD', count: 1 },
+    },
+  );
 
+  await settleLogs();
   expect(typeof report).toBe('string');
+
   expect(setup.writes).toHaveLength(1);
+
   expect(setup.emitted).toHaveLength(1);
+
   expect(report).toBe(setup.writes[0].line);
+
   expect(report).not.toMatch(/PRIVATE_TOKEN|PRIVATE_PASSWORD/);
+
   expect(JSON.parse(report!)).toMatchObject({
     schemaVersion: 1,
     level: 'error',
@@ -248,27 +281,38 @@ test('错误诊断返回交给控制台和文件的同一条完整脱敏日志�
 
 test('未安装、旧身份和已卸载时不伪造可复制的错误日志', async () => {
   const log = createLogger('bootstrap');
-  expect(log.captureError('before_install')).toBeNull();
+  await settleLogs();
+  expect(await log.captureError('before_install')).toBeNull();
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   const previous = createOperationContext('startup');
   await handle.setOwner('owner');
-  expect(log.captureError('late_error', { context: previous })).toBeNull();
+  await settleLogs();
+  expect(
+    await log.captureError('late_error', { context: previous }),
+  ).toBeNull();
+  await settleLogs();
   expect(setup.writes).toHaveLength(0);
   handle.dispose();
-  expect(log.captureError('after_dispose')).toBeNull();
+  await settleLogs();
+  expect(await log.captureError('after_dispose')).toBeNull();
 });
 
-test('文件通道失败仍可复制已生成的安全诊断，文件失败由健康状态表达', () => {
+test('文件通道失败仍可复制已生成的安全诊断，文件失败由健康状态表达', async () => {
   const setup = fixture();
   setup.files.append = () => {
     throw new Error('disk failure');
   };
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
-  const report = createLogger('bootstrap').captureError('startup_failed', {
-    error: new Error('configuration unavailable'),
-  });
+  const report = await createLogger('bootstrap').captureError(
+    'startup_failed',
+    {
+      error: new Error('configuration unavailable'),
+    },
+  );
+  await settleLogs();
   expect(JSON.parse(report!)).toMatchObject({ event: 'startup_failed' });
+
   expect(getLogStatus().lastFailureCode).toBe('logger.transport_failed');
 });
 
@@ -293,9 +337,13 @@ test('安装句柄交接文件摘要和部分清理结果，读取失败不替�
   const error = new Error('read failed');
   jest.mocked(setup.files.readSummary).mockRejectedValue(error);
   await expect(handle.readSummary()).rejects.toBe(error);
+  await settleLogs();
   expect(setup.files.readSummary).toHaveBeenCalledTimes(2);
+
   expect(setup.files.clear).toHaveBeenCalledTimes(1);
+
   expect(setup.files.flush).not.toHaveBeenCalled();
+
   expect(setup.files.createSnapshot).not.toHaveBeenCalled();
 });
 
@@ -305,7 +353,7 @@ test('安装句柄按原对象交接快照文件，不重新创建或读取内�
   const snapshot = Object.freeze({
     id: 'owned',
     bytes: 7,
-    identityEpoch: 'original',
+    identityEpoch: createOperationContext('user').identityEpoch,
   });
   const file = Object.freeze({
     uri: 'file:///fixture/snapshot',
@@ -314,10 +362,15 @@ test('安装句柄按原对象交接快照文件，不重新创建或读取内�
   });
   jest.mocked(setup.files.takeSnapshotFile).mockResolvedValue(file);
   await expect(handle.takeSnapshotFile(snapshot)).resolves.toBe(file);
+  await settleLogs();
   expect(setup.files.takeSnapshotFile).toHaveBeenCalledTimes(1);
+
   expect(setup.files.takeSnapshotFile).toHaveBeenCalledWith(snapshot);
+
   expect(setup.files.readSnapshot).not.toHaveBeenCalled();
+
   expect(setup.files.createSnapshot).not.toHaveBeenCalled();
+
   expect(file.release).not.toHaveBeenCalled();
 });
 
@@ -334,9 +387,11 @@ test('客户端请求保留子操作、父操作与服务端关联', async () =>
   const log = createLogger('http');
   log.info('request_started', metadata);
   log.info('request_completed', metadata);
+  await settleLogs();
   expect(setup.writes).toHaveLength(2);
   for (const entry of setup.writes) {
     const record = JSON.parse(entry.line);
+    await settleLogs();
     expect(record).toMatchObject({
       operationId: context.operationId,
       parentOperationId: parent.operationId,
@@ -347,7 +402,9 @@ test('客户端请求保留子操作、父操作与服务端关联', async () =>
 
 test('普通入口没有安装副作用，预先建立的 logger 在安装后使用已脱敏的数据分发一次', async () => {
   const log = createLogger('bootstrap');
+  await settleLogs();
   expect(() => log.error('before_install')).not.toThrow();
+  await settleLogs();
   expect(getLogStatus().installed).toBe(false);
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
@@ -355,10 +412,15 @@ test('普通入口没有安装副作用，预先建立的 logger 在安装后使
     error: new Error('Authorization: Bearer SECRET_VALUE'),
     fields: { password: 'SECRET_PASS', count: 2 },
   });
+  await settleLogs();
   expect(setup.writes).toHaveLength(1);
+
   expect(setup.writes[0].startup).toBe(true);
+
   expect(setup.writes[0].line.endsWith('\n')).toBe(true);
+
   expect(JSON.stringify(setup.emitted)).not.toMatch(/SECRET_VALUE|SECRET_PASS/);
+
   expect(JSON.parse(setup.writes[0].line)).toMatchObject({
     scope: 'bootstrap',
     event: 'startup_failed',
@@ -369,6 +431,7 @@ test('普通入口没有安装副作用，预先建立的 logger 在安装后使
 test('正式包保留 App Info，忽略 Debug，SDK 仅 Warn+ 且不保留任意 args', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
+  await settleLogs();
   expect(setup.backend.getLogLevel()).toBe('info');
   await handle.setOwner('owner-a');
   const log = createLogger('home');
@@ -378,21 +441,26 @@ test('正式包保留 App Info，忽略 Debug，SDK 仅 Warn+ 且不保留任意
   setup.backend
     .createLogger('design')
     .warn('request failed', { token: 'secret-arg' });
+  await settleLogs();
   expect(setup.writes).toHaveLength(2);
+
   expect(setup.writes.map((entry) => JSON.parse(entry.line).event)).toEqual([
     'load_started',
     'sdk.warning',
   ]);
+  await settleLogs();
   expect(JSON.stringify(setup.writes)).not.toContain('secret-arg');
 });
 
-test('未确定身份时只有匿名白名单入队，不持久化未知 SDK 或工作台记录', () => {
+test('未确定身份时只有匿名白名单入队，不持久化未知 SDK 或工作台记录', async () => {
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   createLogger('home').error('load_failed');
   setup.backend.createLogger('design').warn('unknown');
   createLogger('account.session').info('restore_started');
+  await settleLogs();
   expect(setup.writes).toHaveLength(1);
+
   expect(getLogStatus().droppedCount).toBe(2);
 });
 
@@ -401,12 +469,15 @@ test('操作上下文不可变，身份切换和 A→B→A 都使旧操作失效
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner('a');
   const context = createOperationContext('user');
+  await settleLogs();
   expect(Object.isFrozen(context)).toBe(true);
   await handle.setOwner('a');
+  await settleLogs();
   expect(createOperationContext('system').identityEpoch).toBe(
     context.identityEpoch,
   );
   const child = createOperationContext('system', context);
+  await settleLogs();
   expect(child.parentOperationId).toBe(context.operationId);
   await handle.setOwner('b');
   await handle.setOwner('a');
@@ -414,11 +485,14 @@ test('操作上下文不可变，身份切换和 A→B→A 都使旧操作失效
   createLogger('home').error('late_child', {
     context: createOperationContext('system', context),
   });
+  await settleLogs();
   expect(setup.writes).toHaveLength(0);
   createLogger('home').info('current', {
     context: createOperationContext('user'),
   });
+  await settleLogs();
   expect(setup.writes).toHaveLength(1);
+
   expect(setup.files.setOwner).toHaveBeenCalledTimes(3);
 });
 
@@ -434,29 +508,38 @@ test('日志 SDK、文件及身份切换失败不能抛向业务且留下健康�
     throw new Error('flush');
   };
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
+  await settleLogs();
   expect(() => createLogger('bootstrap').info('start')).not.toThrow();
   await expect(handle.setOwner(null)).resolves.toBeUndefined();
   await expect(handle.flush()).resolves.toBeUndefined();
+  await settleLogs();
   expect(getLogStatus().lastFailureCode).toBeTruthy();
 });
 
-test('安装幂等，卸载移除 transport 并恢复所接管级别，旧 handle 不影响新实例', () => {
+test('安装幂等，卸载移除 transport 并恢复所接管级别，旧 handle 不影响新实例', async () => {
   const setup = fixture(true);
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
+  await settleLogs();
   expect(installLogging({ ...setup.options, policy: TEST_POLICY })).toBe(
     handle,
   );
+
   expect(setup.transports.size).toBe(1);
+
   expect(setup.backend.getLogLevel()).toBe('debug');
   const previous = handle;
   handle.dispose();
   handle.dispose();
+  await settleLogs();
   expect(setup.files.dispose).toHaveBeenCalledTimes(1);
+
   expect(setup.transports.size).toBe(0);
+
   expect(setup.backend.getLogLevel()).toBe('warn');
   const next = fixture();
   handle = installLogging({ ...next.options, policy: TEST_POLICY });
   previous.dispose();
+  await settleLogs();
   expect(getLogStatus().installed).toBe(true);
 });
 
@@ -470,31 +553,43 @@ test('安装实例复用规范化 scope 的后端 logger，动态级别及重新
   facade.info('first');
   createLogger('home').info('second');
   createLogger('account').warn('other_scope');
+  await settleLogs();
   expect(create.mock.calls).toEqual([['unif:home'], ['unif:account']]);
+
   expect(setup.writes).toHaveLength(3);
   setup.backend.setLogLevel('error');
   facade.info('filtered');
   facade.error('visible');
+  await settleLogs();
   expect(setup.writes).toHaveLength(4);
   setup.backend.setLogLevel('debug');
   facade.debug('debug_enabled');
+  await settleLogs();
   expect(setup.writes).toHaveLength(5);
+
   expect(create).toHaveBeenCalledTimes(2);
+
   expect(installLogging({ ...setup.options, policy: TEST_POLICY })).toBe(
     handle,
   );
+
   expect(add).toHaveBeenCalledTimes(1);
   handle.dispose();
   facade.error('after_dispose');
+  await settleLogs();
   expect(setup.writes).toHaveLength(5);
   const next = fixture();
   const nextCreate = jest.spyOn(next.backend, 'createLogger');
   handle = installLogging({ ...next.options, policy: TEST_POLICY });
   await handle.setOwner('owner');
   facade.info('new_instance');
+  await settleLogs();
   expect(nextCreate).toHaveBeenCalledTimes(1);
+
   expect(next.writes).toHaveLength(1);
+
   expect(JSON.parse(next.writes[0].line).event).toBe('new_instance');
+
   expect(setup.writes).toHaveLength(5);
 });
 
@@ -505,10 +600,17 @@ test('不同原始 scope 规范化为相同值时只建立一个后端对象', a
   await handle.setOwner('owner');
   createLogger('/home?token=first').info('first');
   createLogger('/home?token=second').info('second');
+  await settleLogs();
   expect(create.mock.calls).toEqual([['unif:/home[REDACTED]']]);
+
   expect(setup.writes).toHaveLength(2);
+
   expect(setup.writes.map((write) => JSON.parse(write.line).scope)).toEqual([
     '/home[REDACTED]',
     '/home[REDACTED]',
   ]);
 });
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}

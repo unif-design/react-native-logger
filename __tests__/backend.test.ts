@@ -31,48 +31,62 @@ describe('logger', () => {
     jest.restoreAllMocks();
   });
 
-  test('createLogger 返 4 个 level method', () => {
+  test('createLogger 返 4 个 level method', async () => {
     const { createLogger } = require('../src/backend');
     const log = createLogger('TestScope');
+    await settleLogs();
     expect(typeof log.debug).toBe('function');
+
     expect(typeof log.info).toBe('function');
+
     expect(typeof log.warn).toBe('function');
+
     expect(typeof log.error).toBe('function');
   });
 
-  test('warn 输出带 [Scope] 前缀,业务消息单独传', () => {
+  test('warn 输出带 [Scope] 前缀,业务消息单独传', async () => {
     const { createLogger } = require('../src/backend');
     const log = createLogger('TestScope');
     log.warn('msg');
+    await settleLogs();
     expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
     const args = consoleWarnSpy.mock.calls[0];
+    await settleLogs();
     expect(args[0]).toBe('[TestScope]');
+
     expect(args[1]).toBe('msg');
   });
 
-  test('error 走 console.error 且带 scope 前缀', () => {
+  test('error 走 console.error 且带 scope 前缀', async () => {
     const { createLogger } = require('../src/backend');
     const log = createLogger('TestScope');
     log.error('boom', { code: 500 });
+    await settleLogs();
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
     const args = consoleErrorSpy.mock.calls[0];
+    await settleLogs();
     expect(args[0]).toBe('[TestScope]');
+
     expect(args[1]).toBe('boom');
+
     expect(args[2]).toEqual({ code: 500 });
   });
 
-  test('__DEV__ 下默认 level=debug,debug/info 都输出', () => {
+  test('__DEV__ 下默认 level=debug,debug/info 都输出', async () => {
     // jest preset 默认 __DEV__ = true
     const { createLogger, getLogLevel } = require('../src/backend');
+    await settleLogs();
     expect(getLogLevel()).toBe('debug');
     const log = createLogger('TestScope');
     log.debug('d');
     log.info('i');
+    await settleLogs();
     expect(consoleDebugSpy).toHaveBeenCalledTimes(1);
+
     expect(consoleInfoSpy).toHaveBeenCalledTimes(1);
   });
 
-  test('setLogLevel("warn") 之后 debug/info 不再输出,warn/error 仍输出', () => {
+  test('setLogLevel("warn") 之后 debug/info 不再输出,warn/error 仍输出', async () => {
     const { createLogger, setLogLevel } = require('../src/backend');
     setLogLevel('warn');
     const log = createLogger('TestScope');
@@ -80,13 +94,17 @@ describe('logger', () => {
     log.info('i');
     log.warn('w');
     log.error('e');
+    await settleLogs();
     expect(consoleDebugSpy).not.toHaveBeenCalled();
+
     expect(consoleInfoSpy).not.toHaveBeenCalled();
+
     expect(consoleWarnSpy).toHaveBeenCalledTimes(1);
+
     expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
   });
 
-  test('addTransport 同 id 自动去重 + removeTransport 删除', () => {
+  test('addTransport 同 id 自动去重 + removeTransport 删除', async () => {
     const {
       createLogger,
       addTransport,
@@ -103,13 +121,15 @@ describe('logger', () => {
     addTransport(t); // 同 id 应去重
     const log = createLogger('TestScope');
     log.warn('hello');
+    await settleLogs();
     expect(records).toEqual([{ scope: 'TestScope', message: 'hello' }]);
     removeTransport('memory');
     log.warn('after-remove');
+    await settleLogs();
     expect(records).toHaveLength(1); // 移除后不再追加
   });
 
-  test('transport 抛错被隔离,不影响其他 transport / 业务调用', () => {
+  test('transport 抛错被隔离,不影响其他 transport / 业务调用', async () => {
     const { createLogger, addTransport } = require('../src/backend');
     const calls: string[] = [];
     addTransport({
@@ -125,23 +145,31 @@ describe('logger', () => {
       },
     });
     const log = createLogger('TestScope');
+    await settleLogs();
     expect(() => log.warn('ok')).not.toThrow();
+    await settleLogs();
     expect(calls).toEqual(['ok']);
   });
 });
 
-test('production default filters debug and info while retaining warnings', () => {
+test('production default filters debug and info while retaining warnings', async () => {
   const dev = Reflect.get(globalThis, '__DEV__');
   Reflect.set(globalThis, '__DEV__', false);
   jest.resetModules();
   try {
     const { createLogger, getLogLevel } = require('../src/backend');
+    await settleLogs();
     expect(getLogLevel()).toBe('warn');
     const debug = jest.spyOn(console, 'debug').mockImplementation(() => {});
     createLogger('Production').debug('hidden');
+    await settleLogs();
     expect(debug).not.toHaveBeenCalled();
   } finally {
     Reflect.set(globalThis, '__DEV__', dev);
     jest.restoreAllMocks();
   }
 });
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}

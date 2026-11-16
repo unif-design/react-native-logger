@@ -85,3 +85,8 @@ export const FAILURE_CODES: Readonly<Record<string, string>> = {
   SQLITE_CANTOPEN: 'storage_open',
   SQLITE_IOERR: 'io_error',
 };
+
+export const LOG_TASK_BATCH_SIZE = 16;
+export const LOG_TASK_QUEUE_LIMIT = 1000;
+
+export const LOG_TASK_ROOT_LIMIT = 64;

@@ -39,19 +39,29 @@ test.each([
     createLogger('camera').warn('unavailable', {
       fields: { reason: 'not_ready' },
     });
+    await settleLogs();
     expect(jest.mocked(console.info).mock.calls[0]).toHaveLength(1);
+
     expect(jest.mocked(console.info).mock.calls[0][0]).toMatch(
       / INFO \[sample-app\] \[design\] mounted$/,
     );
     const bytes = getLogStatus().bufferedBytes;
     console.info('raw output');
+    await settleLogs();
     expect(getLogStatus().bufferedBytes).toBe(bytes);
+
     expect(
       String(jest.mocked(console.info).mock.calls[0][0]).startsWith(
         `${display} INFO `,
       ),
     ).toBe(true);
+
     expect(getLogStatus()).toMatchObject({ installed: true, droppedCount: 0 });
+
     expect(getLogStatus().bufferedBytes).toBeGreaterThan(0);
   },
 );
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}

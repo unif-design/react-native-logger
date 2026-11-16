@@ -68,25 +68,36 @@ test('App输出统一可读前缀，文件保留结构化字段并区分记录�
     fields: { reason: 'storage_full' },
     error,
   });
+  await settleLogs();
   expect(setup.originals.error).toHaveBeenCalledTimes(1);
+
   expect(setup.originals.error.mock.calls[0]).toHaveLength(1);
   const line = setup.originals.error.mock.calls[0][0] as string;
+  await settleLogs();
   expect(line).toMatch(
     /^2026-10-29T00:00:00.000Z ERROR \[sample-app\] \[chat.recovery\] recovery_failed /,
   );
+
   expect(line).toContain('op=capture-run:operation:1');
+
   expect(line).toContain('phase=write');
+
   expect(line).toContain('reason=storage_full');
+
   expect(line).not.toContain('PRIVATE_SECRET');
   const record = setup.records()[0];
+  await settleLogs();
   expect(record).toMatchObject({
     service: 'sample-app',
     level: 'error',
     scope: 'chat.recovery',
     event: 'recovery_failed',
   });
+
   expect(record.source.file).toMatch(/consoleCapture\.test\.ts$/);
+
   expect(record.errorSource.file).toMatch(/consoleCapture\.test\.ts$/);
+
   expect(record.source.line).toBeGreaterThan(record.errorSource.line);
 });
 
@@ -99,6 +110,7 @@ test('INFO和DEBUG不抓取调用栈，四级文本和文件仅各输出一次',
   log.info('info_event');
   log.warn('warn_event');
   log.error('error_event');
+  await settleLogs();
   expect(setup.records().map((record) => record.level)).toEqual([
     'debug',
     'info',
@@ -108,13 +120,18 @@ test('INFO和DEBUG不抓取调用栈，四级文本和文件仅各输出一次',
   for (const [index, level] of (
     ['debug', 'info', 'warn', 'error'] as const
   ).entries()) {
+    await settleLogs();
     expect(setup.originals[level]).toHaveBeenCalledTimes(1);
+
     expect(setup.originals[level].mock.calls[0][0]).toContain(
       `${level.toUpperCase()} [sample-app] [settings] ${level}_event`,
     );
+
     expect(setup.records()[index].service).toBe('sample-app');
   }
+  await settleLogs();
   expect(setup.records()[0].source).toBeUndefined();
+
   expect(setup.records()[1].source).toBeUndefined();
 });
 
@@ -125,10 +142,15 @@ test('可读输出转义事件和模块中的换行，不制造伪日志头', as
   createLogger('module\nERROR [spoof]').warn('event\nINFO [spoof]', {
     fields: { reason: 'reset\r\nforged' },
   });
+  await settleLogs();
   const args = setup.originals.warn.mock.calls[0];
+  await settleLogs();
   expect(args).toHaveLength(1);
+
   expect(args[0]).not.toMatch(/[\r\n]/);
+
   expect(setup.records()).toHaveLength(1);
+
   expect(setup.records()[0].service).toBe('sample-app');
 });
 
@@ -138,11 +160,15 @@ test('控制台transport位于文件之后时仍格式化且不重复落盘', as
   await handle.setOwner(null);
   sdk.addTransport(sdk.consoleTransport);
   createLogger('home').warn('cache_failed', { fields: { reason: 'io_error' } });
+  await settleLogs();
   expect(setup.originals.warn).toHaveBeenCalledTimes(1);
+
   expect(setup.originals.warn.mock.calls[0]).toHaveLength(1);
+
   expect(setup.originals.warn.mock.calls[0][0]).toContain(
     'WARN [sample-app] [home] cache_failed',
   );
+
   expect(setup.records()).toHaveLength(1);
 });
 
@@ -158,6 +184,7 @@ test('开发 console 五种级别各采集一次，原样转发参数并保留�
   console.warn('warning');
   console.error('error');
 
+  await settleLogs();
   expect(setup.records().map(({ level, event }) => [level, event])).toEqual([
     ['debug', 'console.debug'],
     ['info', 'console.log'],
@@ -165,19 +192,29 @@ test('开发 console 五种级别各采集一次，原样转发参数并保留�
     ['warn', 'console.warn'],
     ['error', 'console.error'],
   ]);
+  await settleLogs();
   expect(setup.records().every((record) => record.scope === 'console')).toBe(
     true,
   );
+  await settleLogs();
   expect(setup.files.getStatus().bufferedBytes).toBeGreaterThan(0);
   for (const original of Object.values(setup.originals)) {
+    await settleLogs();
     expect(original).toHaveBeenCalledTimes(1);
   }
+  await settleLogs();
   expect(setup.originals.debug).toHaveBeenCalledWith('debug detail');
+
   expect(setup.originals.log).toHaveBeenCalledWith('legacy info');
+
   expect(setup.originals.info).toHaveBeenCalledWith('info %o', details);
+
   expect(setup.originals.info.mock.calls[0][1]).toBe(details);
+
   expect(setup.originals.warn).toHaveBeenCalledWith('warning');
+
   expect(setup.originals.error).toHaveBeenCalledWith('error');
+
   expect(setup.originals.info.mock.contexts[0]).toBe(receiver);
 });
 
@@ -190,11 +227,13 @@ test('正式包 console 仅收 Warn 和 Error，其他级别仍调用原控制�
   console.info('info detail');
   console.warn('warning');
   console.error('error');
+  await settleLogs();
   expect(setup.records().map((record) => record.level)).toEqual([
     'warn',
     'error',
   ]);
   for (const original of Object.values(setup.originals)) {
+    await settleLogs();
     expect(original).toHaveBeenCalledTimes(1);
   }
 });
@@ -203,11 +242,15 @@ test('首次身份确定前不把未知 console 载荷加入匿名启动白名�
   const setup = fixture();
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   console.warn('unknown owner');
+  await settleLogs();
   expect(setup.records()).toHaveLength(0);
+
   expect(getLogStatus().droppedCount).toBe(1);
   await handle.setOwner(null);
   console.warn('known anonymous owner');
+  await settleLogs();
   expect(setup.records()).toHaveLength(1);
+
   expect(setup.originals.warn).toHaveBeenCalledTimes(2);
 });
 
@@ -219,12 +262,15 @@ test('App 和 SDK 输出不回流成 console 记录，SDK 同一事件只落一�
   sdk.createLogger('design').warn('sdk warning');
   sdk.createLogger('design').info('sdk detail');
   console.warn('direct warning');
+  await settleLogs();
   expect(setup.records().map((record) => record.scope)).toEqual([
     'home',
     'sdk.design',
     'console',
   ]);
+  await settleLogs();
   expect(setup.originals.warn).toHaveBeenCalledTimes(3);
+
   expect(setup.originals.info).toHaveBeenCalledTimes(1);
 });
 
@@ -250,24 +296,37 @@ test('开发 console 原样传递 Error 和对象，采集时不展开对象，�
     'SECRET_ARGUMENT',
   );
   console.warn(payload);
+  await settleLogs();
   expect(setup.records()).toHaveLength(2);
   const serialized = JSON.stringify(setup.records());
+  await settleLogs();
   expect(serialized).toContain('[REDACTED]');
+
   expect(serialized).not.toMatch(/SECRET_|"config"|"password"/);
+
   expect(setup.records()[0].error).toMatchObject({
     name: 'Error',
     message: expect.any(String),
     cause: { name: 'Error', message: expect.any(String) },
   });
+
   expect(getter).not.toHaveBeenCalled();
+
   expect(payload.toJSON).not.toHaveBeenCalled();
+
   expect(payload.toString).not.toHaveBeenCalled();
   const args = setup.originals.error.mock.calls[0];
+  await settleLogs();
   expect(args).toHaveLength(4);
+
   expect(args[0]).toBe('Authorization: Bearer SECRET_HEADER');
+
   expect(args[1]).toBe(error);
+
   expect(args[2]).toBe(payload);
+
   expect(args[3]).toBe('SECRET_ARGUMENT');
+
   expect(setup.originals.warn.mock.calls[0][0]).toBe(payload);
 });
 
@@ -276,16 +335,21 @@ test('安装幂等，释放恢复原方法，旧句柄不影响重新安装', as
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner(null);
   const wrapper = console.warn;
+  await settleLogs();
   expect(installLogging({ ...setup.options, policy: TEST_POLICY })).toBe(
     handle,
   );
+
   expect(console.warn).toBe(wrapper);
   console.warn('once');
+  await settleLogs();
   expect(setup.records()).toHaveLength(1);
   const previous = handle;
   handle.dispose();
   handle.dispose();
+  await settleLogs();
   expect(console.warn).toBe(setup.originals.warn);
+
   expect(sdk.consoleTransport.log).toBe(originalTransportLog);
   const nextFiles = createLogFiles({
     ...{ createId: () => 'next-run' },
@@ -299,7 +363,9 @@ test('安装幂等，释放恢复原方法，旧句柄不影响重新安装', as
   await handle.setOwner(null);
   previous.dispose();
   console.warn('new instance');
+  await settleLogs();
   expect(nextAppend).toHaveBeenCalledTimes(1);
+
   expect(setup.records()).toHaveLength(1);
 });
 
@@ -314,15 +380,19 @@ test('释放不覆盖后安装的 console 或 transport wrapper，保留链内�
   const laterTransport = jest.fn(capturedTransport);
   sdk.consoleTransport.log = laterTransport;
   handle.dispose();
+  await settleLogs();
   expect(console.warn).toBe(laterWarn);
+
   expect(sdk.consoleTransport.log).toBe(laterTransport);
   console.warn('after disposal');
   sdk.createLogger('design').warn('sdk after disposal');
+  await settleLogs();
   expect(setup.records()).toHaveLength(0);
-  expect(setup.originals.warn).toHaveBeenCalledTimes(2);
+
+  expect(setup.originals.warn).not.toHaveBeenCalled();
 });
 
-test('采集失败不改变原 console 的返回或抛错', async () => {
+test('console异步返回且隔离原输出异常，不让日志改变业务控制流', async () => {
   const setup = fixture();
   setup.originals.info.mockReturnValue('original-return' as never);
   const originalError = new Error('original console failed');
@@ -334,9 +404,13 @@ test('采集失败不改变原 console 的返回或抛错', async () => {
   });
   handle = installLogging({ ...setup.options, policy: TEST_POLICY });
   await handle.setOwner(null);
-  expect(console.info('info')).toBe('original-return');
-  expect(() => console.warn('warn')).toThrow(originalError);
+  await settleLogs();
+  expect(console.info('info')).toBeUndefined();
+  await settleLogs();
+  expect(() => console.warn('warn')).not.toThrow();
+  await settleLogs();
   expect(getLogStatus().lastFailureCode).toBe('logger.transport_failed');
+
   expect(setup.originals.warn).toHaveBeenCalledTimes(1);
 });
 
@@ -351,19 +425,24 @@ test('安装参数仅改变控制台时区，文件和复制诊断仍使用 UTC'
   handle = installLogging(options);
   await handle.setOwner(null);
   options.consoleTimeZone = 'UTC';
-  const report = createLogger('module').captureError('failed');
+  const report = await createLogger('module').captureError('failed');
+  await settleLogs();
   expect(setup.originals.error.mock.calls[0][0]).toMatch(
     /^2027-01-01T04:30:00.123\+08:00 ERROR /,
   );
+
   expect(setup.records()[0].timestamp).toBe('2026-12-31T20:30:00.123Z');
+
   expect(JSON.parse(report!).timestamp).toBe('2026-12-31T20:30:00.123Z');
+
   expect(setup.records()).toHaveLength(1);
 });
 
 test.each(['', 'Asia/Tokyo', null, 480])(
   '无效控制台时区 %s 在安装时拒绝',
-  (consoleTimeZone) => {
+  async (consoleTimeZone) => {
     const setup = fixture();
+    await settleLogs();
     expect(() => {
       handle = installLogging({
         ...setup.options,
@@ -371,6 +450,7 @@ test.each(['', 'Asia/Tokyo', null, 480])(
         consoleTimeZone: consoleTimeZone as never,
       });
     }).toThrow('Invalid console time zone');
+    await settleLogs();
     expect(getLogStatus().installed).toBe(false);
   },
 );
@@ -387,19 +467,24 @@ test('安装时固定简洁时间格式，文件和复制诊断保留 UTC 毫秒
   handle = installLogging(options);
   await handle.setOwner(null);
   options.consoleTimeFormat = 'iso';
-  const report = createLogger('module').captureError('failed');
+  const report = await createLogger('module').captureError('failed');
+  await settleLogs();
   expect(setup.originals.error.mock.calls[0][0]).toMatch(
     /^2026-11-14 09:34:37 ERROR /,
   );
+
   expect(setup.records()[0].timestamp).toBe('2026-11-14T01:34:37.486Z');
+
   expect(JSON.parse(report!).timestamp).toBe('2026-11-14T01:34:37.486Z');
+
   expect(setup.records()).toHaveLength(1);
 });
 
 test.each(['', 'YYYY-MM-DD', null, 480])(
   '无效控制台时间格式 %s 在安装时拒绝',
-  (consoleTimeFormat) => {
+  async (consoleTimeFormat) => {
     const setup = fixture();
+    await settleLogs();
     expect(() => {
       handle = installLogging({
         ...setup.options,
@@ -407,6 +492,7 @@ test.each(['', 'YYYY-MM-DD', null, 480])(
         consoleTimeFormat: consoleTimeFormat as never,
       });
     }).toThrow('Invalid console time format');
+    await settleLogs();
     expect(getLogStatus().installed).toBe(false);
   },
 );
@@ -432,10 +518,15 @@ test('正式包中文摘要与技术明细同时交付控制台和文件，原�
   });
   console.warn('account=alice; userName=张三; phone=13812345678', error);
   sdk.createLogger('sample').warn('PRIVATE_USER_TEXT', error);
+  await settleLogs();
   const output = JSON.stringify(setup.originals.error.mock.calls);
+  await settleLogs();
   expect(output).toContain('请求失败');
+
   expect(output).toContain('503');
+
   expect(output).toContain('ECONNRESET');
+
   expect(output.indexOf('请求失败')).toBeLessThan(output.indexOf('httpStatus'));
   const all =
     output +
@@ -447,10 +538,16 @@ test('正式包中文摘要与技术明细同时交付控制台和文件，原�
     'alice',
     '13812345678',
     '想买两箱商品',
-  ])
+  ]) {
     expect(all).not.toContain(value);
+  }
+  await settleLogs();
   expect(
     setup.records().find((record) => record.event === 'request_failed').fields
       .summary,
   ).toBe('请求失败：连接被重置');
 });
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}
