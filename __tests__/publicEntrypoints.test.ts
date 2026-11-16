@@ -1,6 +1,7 @@
 import manifest from '../package.json';
 
-it('仅公开根入口、文件入口与包元数据', () => {
+it('仅公开根入口、文件入口与包元数据', async () => {
+  await settleLogs();
   expect(Object.keys(manifest.exports).sort()).toEqual([
     '.',
     './files',
@@ -8,8 +9,8 @@ it('仅公开根入口、文件入口与包元数据', () => {
   ]);
 });
 
-it('根入口提供安装、记录与脱敏，加载时不触发原生文件 SDK', () => {
-  jest.isolateModules(() => {
+it('根入口提供安装、记录与脱敏，加载时不触发原生文件 SDK', async () => {
+  await jest.isolateModulesAsync(async () => {
     jest.doMock('react-native-blob-util', () => {
       throw new Error('根入口不应加载原生文件 SDK');
     });
@@ -30,7 +31,7 @@ it('根入口提供安装、记录与脱敏，加载时不触发原生文件 SDK
     ]);
     expect(api.getLogStatus().installed).toBe(false);
     expect(
-      api.createLogger('consumer').captureError('before_install'),
+      await api.createLogger('consumer').captureError('before_install'),
     ).toBeNull();
     expect(api.isSensitiveDiagnosticField('authorization')).toBe(true);
     expect(api.redactDiagnosticText('Bearer test-secret')).not.toContain(
@@ -47,7 +48,9 @@ it('公开默认后端保留既有可变参数接口，并由默认安装采集�
     createLogger,
   } = require('../src');
   const backend = require('../src/backend');
+  await settleLogs();
   expect(defaultLogBackend).toBe(backend);
+
   expect(defaultLogBackend.consoleTransport).toBe(consoleTransport);
   jest.spyOn(console, 'warn').mockImplementation(() => {});
   const append = jest.fn();
@@ -75,17 +78,25 @@ it('公开默认后端保留既有可变参数接口，并由默认安装采集�
       .createLogger('design')
       .warn('existing warning', { privateToken: 'secret' });
     createLogger('camera').warn('capture.failed');
+    await settleLogs();
     expect(append).toHaveBeenCalledTimes(2);
+
     expect(JSON.parse(append.mock.calls[0][0].line)).toMatchObject({
       scope: 'sdk.design',
       event: 'sdk.warning',
     });
+
     expect(JSON.parse(append.mock.calls[1][0].line)).toMatchObject({
       scope: 'camera',
       event: 'capture.failed',
     });
+
     expect(JSON.stringify(append.mock.calls)).not.toContain('secret');
   } finally {
     handle.dispose();
   }
 });
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}

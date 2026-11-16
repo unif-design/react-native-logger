@@ -1,20 +1,17 @@
 import { readLogRuntime } from './state';
-import type { AppLogger, LogLevel, LogMetadata } from './types';
-import { getLogSource } from './normalization/getLogSource';
+import type { AppLogger, LogLevel, LogMetadataInput } from './types';
 
 export function createLogger(scope: string): AppLogger {
-  function emit(level: LogLevel, event: string, metadata?: LogMetadata) {
+  function emit(level: LogLevel, event: string, metadata?: LogMetadataInput) {
     try {
       const runtime = readLogRuntime();
-      if (!runtime) return null;
+      if (!runtime) return Promise.resolve(null);
       const source =
-        level === 'warn' || level === 'error'
-          ? getLogSource(new Error(), 2)
-          : undefined;
+        level === 'warn' || level === 'error' ? new Error() : undefined;
       return runtime.emit(scope, level, event, metadata, source);
     } catch {
       // 日志不改变调用方的控制流，诊断通道不能递归记录自身异常。
-      return null;
+      return Promise.resolve(null);
     }
   }
   return {

@@ -80,14 +80,19 @@ test('应用策略决定服务名、启动范围和字段，既有脱敏仍执�
   await handle.setOwner(null);
   await handle.flush();
   const lines = state.memory.sourceText().trim().split('\n');
+  await settleLogs();
   expect(lines).toHaveLength(1);
+
   expect(JSON.parse(lines[0])).toMatchObject({
     service: 'sample-app',
     scope: 'boot',
     fields: { sampleCount: 2 },
   });
+
   expect(lines[0]).not.toContain('PRIVATE');
+
   expect(lines[0]).not.toContain('hidden');
+
   expect(getLogStatus().droppedCount).toBe(1);
 });
 
@@ -103,25 +108,34 @@ test('安装后修改传入策略不能扩大记录范围', async () => {
   createLogger('blocked').info('ignored');
   await handle.setOwner(null);
   await handle.flush();
+  await settleLogs();
   expect(state.memory.sourceText()).toContain('sample-app');
+
   expect(state.memory.sourceText()).not.toMatch(/changed|PRIVATE|ignored/);
 });
 
 test.each(['password', 'authorization', '__proto__', 'constructor'])(
   '拒绝不安全字段策略 %s',
-  (field) => {
+  async (field) => {
     const state = setup();
     state.options.policy.allowedFields.push(field);
+    await settleLogs();
     expect(() => {
       handle = installLogging(state.options);
     }).toThrow();
+    await settleLogs();
     expect(state.transports.size).toBe(0);
   },
 );
 
-test('未提供应用策略时拒绝安装，不采用隐含的企业配置', () => {
+test('未提供应用策略时拒绝安装，不采用隐含的企业配置', async () => {
   const options = { ...setup().options, policy: undefined };
+  await settleLogs();
   expect(() => {
     handle = installLogging(options as never);
   }).toThrow();
 });
+
+async function settleLogs(): Promise<void> {
+  await require('../src/runtime/logTasks').flushLogTasks();
+}

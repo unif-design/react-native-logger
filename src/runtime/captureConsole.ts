@@ -1,40 +1,43 @@
 import { CONSOLE_METHODS } from '../constants';
-import { createLogger } from '../createLogger';
-import { getFailureDiagnostics } from '../getFailureDiagnostics';
-import type { ConsoleCaptureOptions } from '../types';
+import type { ConsoleCaptureOptions, LogLevel } from '../types';
 import type { LogRecord as SdkLogRecord } from '../backend/types';
+import { enqueueLogTask, isExecutingLogTask } from './logTasks';
 
 export function captureConsole(
   { target, transport }: ConsoleCaptureOptions,
   development: boolean,
-  formatRecord: (record: SdkLogRecord) => string | undefined,
+  formatRecord: (record: SdkLogRecord) => string | null | undefined,
   capture = true,
+  recordConsole: (
+    method: LogLevel | 'log',
+    args: unknown[],
+    source: Error,
+  ) => void,
 ): () => void {
-  const log = createLogger('console');
   const restore: Array<() => void> = [];
   const previousTransport = transport.log;
   let active = true;
-  let capturing = false;
-  let backendOutput = false;
+  let outputting = false;
 
-  const output: typeof transport.log = function (
-    this: ConsoleCaptureOptions['transport'],
-    record,
-  ) {
-    if (active && capturing) return;
-    const previousOutput = backendOutput;
-    backendOutput = true;
-    try {
-      const formatted = active ? formatRecord(record) : undefined;
-      if (formatted !== undefined) return target[record.level](formatted);
-      if (active)
-        return target[record.level](
-          '[SDK] ' + record.level + '；原始输出已省略，请查看结构化诊断',
+  const output: typeof transport.log = function (record) {
+    if (!active) return;
+    const write = () => {
+      if (!active) return;
+      const before = outputting;
+      outputting = true;
+      try {
+        const formatted = formatRecord(record);
+        if (formatted === null) return;
+        target[record.level](
+          formatted ??
+            '[SDK] ' + record.level + '；原始输出已省略，请查看结构化诊断',
         );
-      return previousTransport.call(this, record);
-    } finally {
-      backendOutput = previousOutput;
-    }
+      } finally {
+        outputting = before;
+      }
+    };
+    if (isExecutingLogTask()) write();
+    else enqueueLogTask(write);
   };
 
   function release() {
@@ -49,9 +52,7 @@ export function captureConsole(
     }
     if (failures.length) throw failures[0];
   }
-
   try {
-    // 公共 console transport 的实际输出不作为新的来源回收。
     transport.log = output;
     restore.push(() => {
       if (transport.log === output) transport.log = previousTransport;
@@ -60,31 +61,26 @@ export function captureConsole(
     for (const method of CONSOLE_METHODS) {
       const previous = target[method];
       const wrapped = function (this: unknown, ...args: unknown[]) {
-        if (!active || backendOutput) return previous.apply(this, args);
-        const outputArgs = development
-          ? args
-          : ['console.' + method + '；原始输出已省略，请查看结构化诊断'];
-        if (capturing) return previous.apply(this, outputArgs);
-        capturing = true;
-        try {
+        if (!active) return;
+        if (outputting) return previous.apply(this, args);
+        const source = new Error();
+        if (development || method === 'warn' || method === 'error')
+          recordConsole(method, args, source);
+        enqueueLogTask(() => {
+          if (!active) return;
+          const before = outputting;
+          outputting = true;
           try {
-            if (development || method === 'warn' || method === 'error') {
-              log[method === 'log' ? 'info' : method](`console.${method}`, {
-                fields: {
-                  ...getFailureDiagnostics(
-                    args.find((value) => value instanceof Error),
-                  ),
-                },
-                error: args.find((value) => value instanceof Error),
-              });
-            }
-          } catch {
-            // 采集异常不能中断原控制台调用。
+            previous.apply(
+              this,
+              development
+                ? args
+                : ['console.' + method + '；原始输出已省略，请查看结构化诊断'],
+            );
+          } finally {
+            outputting = before;
           }
-          return previous.apply(this, outputArgs);
-        } finally {
-          capturing = false;
-        }
+        });
       };
       target[method] = wrapped;
       restore.push(() => {

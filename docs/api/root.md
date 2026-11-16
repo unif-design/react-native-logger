@@ -38,13 +38,34 @@ policy: {
 
 `LogEnvironment` 必填 `appVersion: string`、`platform: string`、`osVersion: string`、`development: boolean`。可选字符串为 `installedAppVersion`、`bundleId`、`buildNumber`、`deviceModel`、`systemName`、`systemVersion`；值均由应用取得，不由库猜测。
 
-`LoggingHandle` 提供 `setOwner(ownerKey: string | null)`、`flush()`、`dispose()`，以及 [文件和快照管理](files.md) 中的 `readSummary`、`clear`、`createSnapshot`、`readSnapshot`、`releaseSnapshot`、`takeSnapshotFile`。`setOwner` 与 `flush` 的内部失败写入健康状态，不等于成功落盘；文件管理方法按其契约返回结果或拒绝。
+`LoggingHandle` 提供 `setOwner(ownerKey: string | null)`、`flush()`、`dispose()`，以及 [文件和快照管理](files.md) 中的 `readSummary`、`clear`、`createSnapshot`、`readSnapshot`、`releaseSnapshot`、`takeSnapshotFile`。`setOwner` 在调用时立即改变身份周期，使旧上下文失效，实际绑定进入同一异步队列；首次未绑定阶段已准入的启动记录仍固定匿名分区。普通跨身份未处理任务丢弃，不能改归新用户。
+
+`flush`、`readSummary`、`clear` 和 `createSnapshot` 包含调用前提交的日志及其同步派生分发，后来的独立日志不拖延边界。管理操作在调用时捕获身份，等待期间变更身份会拒绝或记入 flush 健康失败，不转去操作新用户文件。未交付快照的读取、交付和释放同样在运行时身份边界内，旧快照不会趁文件绑定尚未完成读取原账号内容；交付中的文件晚到且身份失效时释放该文件后拒绝。已经交付的 `LogSnapshotFile.release()` 仍可跨身份释放原文件。`setOwner` 与 `flush` 的内部失败写入健康状态，不等于成功落盘；文件管理方法按其契约返回结果或拒绝。
+
+统一队列最多待处理 1000 个任务，每个宏任务最多处理 16 个，单次记录的重入派生最多 64 个；过量及失效任务丢弃并计数，不阻塞或同步排空业务。身份和文件管理控制任务遇到普通日志占满时可淘汰一条普通任务取得槽位，总量仍有界；未成功绑定的身份可用同值重试，不把旧文件存储的 ready 状态误作新身份绑定成功。`dispose` 立即停止接收并取消本运行时待处理／等待任务，不同步强制排空；需要保留已提交记录时先显式 `await handle.flush()`。纯 TypeScript 异步任务仍运行在 JavaScript 线程，不能宣称独立原生后台线程或零 CPU 开销。
 
 ## createLogger(scope)
 
-返回 `AppLogger`，提供 `debug`、`info`、`warn`、`error` 和 `captureError`。前四个签名为 `(event: string, metadata?: LogMetadata) => void`；`captureError` 返回同一次安全序列化的 JSONL 或 null。返回文本只代表规范化成功，不证明写入文件成功。
+返回 `AppLogger`，提供 `debug`、`info`、`warn`、`error` 和 `captureError`。前四个签名为 `(event: string, metadata?: LogMetadataInput) => void`，只提交任务，业务不等待格式化、后端或文件写入。`captureError` 为 `(event: string, metadata?: LogMetadataInput) => Promise<string | null>`，异步返回同一次安全序列化的 JSONL；未安装、过期、队列丢弃或记录失败均解析为 null，不向业务拒绝。返回文本只代表规范化成功，不证明写入文件成功。
 
-未安装时普通调用静默返回，`captureError` 返回 null。生产环境忽略 debug。Warn、Error 和 captureError 有界提取记录位置；Info／Debug 不额外创建调用栈。
+`LogMetadataInput` 为 `LogMetadata | (() => LogMetadata)`。集中诊断可用同步生产器把错误投影等工作延迟到记录任务，生产器不得返回 Promise，不应执行业务副作用。任务仍使用调用现场固定的运行、身份、时间与调用点；身份或运行时已经失效时不执行生产器。传入元数据按只读数据使用，其值在任务中读取；容易被原生重置的连接状态等事实由接入处先固定。
+
+```ts
+log.warn('request_failed', () => ({
+  context,
+  error,
+  fields: getFailureDiagnostics(error),
+}));
+
+// 错误页先展示；报告生成后补充复制内容，业务流程不等待它。
+log
+  .captureError('startup_failed', { error })
+  .then((report) => updateReport(report));
+```
+
+未安装时普通调用静默返回。生产环境忽略 debug，忽略的日志不会执行元数据生产器。Warn、Error 和 captureError 仅在现场捕获调用点，堆栈解析在任务中处理；Info／Debug 不额外创建调用栈。
+
+这是 0.3 的返回契约变更：原来同步读取 `captureError` 文本的消费者需要异步接收，保留卸载、身份及重试后的迟到结果保护，不能把 Promise 传给字符串消费者。纯查询接口 `getErrorDiagnostics`、`getFailureDiagnostics` 等保持同步。
 
 | `LogMetadata` 字段               | 类型               | 用途                                                                          |
 | -------------------------------- | ------------------ | ----------------------------------------------------------------------------- |
@@ -89,14 +110,14 @@ export function installWithConsole(options: LoggingOptions) {
 }
 ```
 
-省略 `console` 不替换全局 console。默认内部后端仍按统一格式输出结构化日志。注入自定义 backend 时，应传该后端真正使用的 console transport，不要用文本前缀猜测并重写第三方输出。
+省略 `console` 不替换全局 console。显式接入的 console 方法只异步提交并返回，不透传原输出函数的特殊返回值或异常；输出失败隔离，不改变业务控制流。默认内部后端仍按统一格式输出结构化日志。注入自定义 backend 时，应传该后端真正使用的 console transport，不要用文本前缀猜测并重写第三方输出。
 
 `LogBackend` 要求实现 `createLogger(scope): Logger`、`addTransport(LogTransport)`、`removeTransport(id)`、`getLogLevel(): LogLevel`、`setLogLevel(LogLevel)`。相关类型均由根入口导出，无需导入内部 backend 文件。
 
 - `Logger` 是后端接线类型，方法签名为 `(message: string, ...args: unknown[]) => void`；应用生产者使用 `AppLogger`。
-- `LogTransport` 含只读 `id` 和 `log(record: LogRecord): void`。
+- `LogTransport` 含只读 `id` 和 `log(record: LogRecord): void`。默认后端在提交时固定 transport 及其方法，异步执行时不改接后来安装的 transport；访问器只在任务内读取并隔离异常。
 - `LogRecord` 含 `level`、`scope`、`message`、`args: unknown[]` 和毫秒时间 `ts`，与结构化 `DiagnosticRecord` 不同。
-- `ConsoleCaptureOptions` 含目标 `target` 和后端的 `transport`。释放时恢复原 console 和 transport 行为。
+- `ConsoleCaptureOptions` 含目标 `target` 和后端的 `transport`。释放时恢复原 console 和 transport 行为；旧 wrapper 的已排队输出丢弃，不在重新安装后补发原文。
 
 序列化规则、控制台时区与 JSONL 字段见 [输出格式](../FORMAT.md)。
 

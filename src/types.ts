@@ -118,12 +118,17 @@ export interface SerializedLogRecord {
   bytes: number;
 }
 
+export type LogMetadataInput = LogMetadata | (() => LogMetadata);
+
 export interface AppLogger {
-  debug(event: string, metadata?: LogMetadata): void;
-  info(event: string, metadata?: LogMetadata): void;
-  warn(event: string, metadata?: LogMetadata): void;
-  error(event: string, metadata?: LogMetadata): void;
-  captureError(event: string, metadata?: LogMetadata): string | null;
+  debug(event: string, metadata?: LogMetadataInput): void;
+  info(event: string, metadata?: LogMetadataInput): void;
+  warn(event: string, metadata?: LogMetadataInput): void;
+  error(event: string, metadata?: LogMetadataInput): void;
+  captureError(
+    event: string,
+    metadata?: LogMetadataInput,
+  ): Promise<string | null>;
 }
 
 export interface LogBackend {
