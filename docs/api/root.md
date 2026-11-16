@@ -23,18 +23,18 @@ policy: {
 }
 ```
 
-| 参数              | 类型                         | 行为                                                          |
-| ----------------- | ---------------------------- | ------------------------------------------------------------- |
-| `policy`          | `LoggingPolicy`，必填        | `service`、`allowedFields`、`startupScopes`，安装时验证并固定 |
-| `environment`     | `LogEnvironment`，必填       | 应用与设备的安全诊断信息，见下表                              |
-| `files`           | `LogFileStore`，必填         | `/files` 创建的存储或调用方实现                               |
-| `createId`        | `() => string`，必填         | 应用已有的唯一诊断标识生成函数                                |
-| `backend`         | `LogBackend`                 | 注入已有后端；省略使用内部实现                                |
-| `console`         | `ConsoleCaptureOptions`      | 显式连接实际 console transport，并启用原始 console 采集       |
-| `consoleTimeZone` | `'UTC'` 或 `'Asia/Shanghai'` | 默认 UTC，仅影响可读控制台展示                                |
-| `consoleTimeFormat` | `'iso'` 或 `'datetime'` | 默认 ISO；datetime 按所选时区显示 `YYYY-MM-DD HH:mm:ss`，仅影响可读控制台 |
-| `now`             | `() => number`               | 可注入毫秒时间源，默认 `Date.now`                             |
-| `monotonicNow`    | `() => number`               | 可注入单调时间源，默认 `performance.now`，用于操作耗时        |
+| 参数                | 类型                         | 行为                                                                      |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------- |
+| `policy`            | `LoggingPolicy`，必填        | `service`、`allowedFields`、`startupScopes`，安装时验证并固定             |
+| `environment`       | `LogEnvironment`，必填       | 应用与设备的安全诊断信息，见下表                                          |
+| `files`             | `LogFileStore`，必填         | `/files` 创建的存储或调用方实现                                           |
+| `createId`          | `() => string`，必填         | 应用已有的唯一诊断标识生成函数                                            |
+| `backend`           | `LogBackend`                 | 注入已有后端；省略使用内部实现                                            |
+| `console`           | `ConsoleCaptureOptions`      | 显式连接实际 console transport，并启用原始 console 采集                   |
+| `consoleTimeZone`   | `'UTC'` 或 `'Asia/Shanghai'` | 默认 UTC，仅影响可读控制台展示                                            |
+| `consoleTimeFormat` | `'iso'` 或 `'datetime'`      | 默认 ISO；datetime 按所选时区显示 `YYYY-MM-DD HH:mm:ss`，仅影响可读控制台 |
+| `now`               | `() => number`               | 可注入毫秒时间源，默认 `Date.now`                                         |
+| `monotonicNow`      | `() => number`               | 可注入单调时间源，默认 `performance.now`，用于操作耗时                    |
 
 `LogEnvironment` 必填 `appVersion: string`、`platform: string`、`osVersion: string`、`development: boolean`。可选字符串为 `installedAppVersion`、`bundleId`、`buildNumber`、`deviceModel`、`systemName`、`systemVersion`；值均由应用取得，不由库猜测。
 
@@ -105,3 +105,32 @@ export function installWithConsole(options: LoggingOptions) {
 根入口导出默认分发器的同一对象，包含 `createLogger`、`setLogLevel`、`getLogLevel`、`addTransport`、`removeTransport` 和 `consoleTransport`。它使用既有 `Logger` 可变参数签名，供已有基础日志 API 转导，保留级别、transport 异常隔离与重入语义；不创建另一份状态。
 
 应用通常省略 `installLogging` 的 `backend`，由默认分发器采集这些 SDK 诊断。组件库不要再次安装运行时；新增结构化生产者仍使用根入口 `createLogger`。两者签名与用途不同，不能用结构化 `createLogger` 代替后端方法。
+
+## getErrorDiagnostics(error)
+
+从根入口导入，返回受控 `DiagnosticError`，可直接交给 `metadata.error`；再次归一化保留同样的技术事实。它只读取错误名、已知技术码、message、stack、cause和已投影source，不读取Axios的request/config/response或任意扩展属性，不调用自定义字符串转换或访问器。
+
+已识别的网络、TLS、文件、权限、存储、数据库、解析、类型及SDK技术消息交付固定短语，动态主机、SQL、字段值与业务正文不输出。任意未识别message为 `[REDACTED]`，不可读取为 `[unserializable]`，循环和原因链上限分别标记 `[circular]`、`[cause limit]`；`messageStatus` 区分技术投影与截断，整体截断另标记 `truncated`。安全stack只含定位帧，source使用可确认的安全文件与行列，未取得的来源不猜测。
+
+```ts
+import {
+  createLogger,
+  getErrorDiagnostics,
+  getFailureDiagnostics,
+} from '@unif/react-native-logger';
+
+const log = createLogger('storage');
+try {
+  await save();
+} catch (error) {
+  log.warn('save.failed', {
+    fields: getFailureDiagnostics(error),
+    error: getErrorDiagnostics(error),
+  });
+  throw error;
+}
+```
+
+非 Error 拒绝值保留 `NonError` 类型，数字、布尔值、null、undefined 等只输出固定类型标记，不记录其原值；SDK 对象的数值技术错误码仍按范围保留。已取得的安全 source 优先于其脱敏 stack 的再次解析，重复投影和序列化保留路径、函数与行列。
+
+`getFailureDiagnostics` 保留紧凑分类、技术码和来源，并可从固定技术消息识别原因；不含任意错误正文。宿主只有传入实际异常或公开取得的底层原因，导出才可能包含这些证据。无底层原因时不能从通用ERR_NETWORK猜出DNS、TLS或服务端故障。

@@ -93,9 +93,13 @@ export interface LogRecordInput extends LogEnvironment {
 export interface DiagnosticError {
   name: string;
   message: string;
-  code?: string;
+  code?: string | number;
   stack?: string;
   cause?: DiagnosticError;
+  source?: LogSource;
+  /** 任意正文不保留；技术消息只交付固定投影。 */
+  messageStatus?: 'technical' | 'truncated';
+  truncated?: boolean;
 }
 
 export interface DiagnosticRecord extends Omit<
