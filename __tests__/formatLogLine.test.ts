@@ -1,6 +1,6 @@
 import { TEST_POLICY } from './policyFixture';
-import { formatLogLine } from '../src/formatLogLine';
-import { serializeLogRecord } from '../src/serializeLogRecord';
+import { formatLogLine } from '../src/formatting/formatLogLine';
+import { serializeLogRecord } from '../src/formatting/serializeLogRecord';
 import type { LogRecordInput } from '../src/types';
 
 function format(

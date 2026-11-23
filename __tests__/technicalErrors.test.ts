@@ -1,6 +1,6 @@
 import * as logging from '../src';
 import { normalizeLogError } from '../src/normalization/normalizeLogError';
-import { serializeLogRecord } from '../src/serializeLogRecord';
+import { serializeLogRecord } from '../src/formatting/serializeLogRecord';
 import { TEST_POLICY } from './policyFixture';
 
 test.each([

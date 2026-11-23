@@ -1,5 +1,5 @@
-import { LOG_LIMITS } from './constants';
-import type { LogRetentionPolicy } from './types';
+import { LOG_LIMITS } from '../constants';
+import type { LogRetentionPolicy } from '../types';
 
 const policy: LogRetentionPolicy = Object.freeze({
   maxAgeMs: LOG_LIMITS.maxAgeMs,

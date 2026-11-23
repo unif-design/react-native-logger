@@ -1,5 +1,5 @@
 import { readLogRuntime } from './state';
-import type { AppLogger, LogLevel, LogMetadataInput } from './types';
+import type { AppLogger, LogLevel, LogMetadataInput } from '../types';
 
 export function createLogger(scope: string): AppLogger {
   function emit(level: LogLevel, event: string, metadata?: LogMetadataInput) {

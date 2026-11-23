@@ -1,6 +1,6 @@
 import sumBy from 'lodash/sumBy.js';
 import { LOG_LIMITS } from '../constants';
-import { utf8ByteLength } from '../utf8ByteLength';
+import { utf8ByteLength } from '../formatting/utf8ByteLength';
 import { LOG_LEVEL_PRIORITY } from './constants';
 import type { LogBuffer, LogFileLimits, QueuedLogWrite } from './types';
 

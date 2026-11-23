@@ -1,6 +1,6 @@
 import { TEST_POLICY } from './policyFixture';
-import { serializeLogRecord } from '../src/serializeLogRecord';
-import { utf8ByteLength } from '../src/utf8ByteLength';
+import { serializeLogRecord } from '../src/formatting/serializeLogRecord';
+import { utf8ByteLength } from '../src/formatting/utf8ByteLength';
 import type { LogRecordInput } from '../src/types';
 
 function createInput(overrides: Partial<LogRecordInput> = {}): LogRecordInput {

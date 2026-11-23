@@ -1,5 +1,5 @@
-import { isSensitiveDiagnosticField } from './normalization/isSensitiveDiagnosticField';
-import type { LoggingPolicy } from './types';
+import { isSensitiveDiagnosticField } from '../normalization/isSensitiveDiagnosticField';
+import type { LoggingPolicy } from '../types';
 
 export function prepareLoggingPolicy(policy: LoggingPolicy): LoggingPolicy {
   const validName = (value: unknown): value is string =>

@@ -1,4 +1,4 @@
-import { utf8ByteLength } from '../utf8ByteLength';
+import { utf8ByteLength } from '../formatting/utf8ByteLength';
 import type { LogSnapshotContent } from './types';
 
 export function readLogSnapshotContent(

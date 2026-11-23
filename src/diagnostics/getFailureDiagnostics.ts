@@ -1,9 +1,9 @@
-import { FAILURE_CODES, FAILURE_ERROR_TYPES } from './constants';
-import { NORMALIZATION_LIMITS } from './normalization/constants';
-import { readLogProperty } from './normalization/readLogProperty';
-import type { FailureDiagnostics } from './types';
-import { getLogSource } from './normalization/getLogSource';
-import { readTechnicalErrorMessage } from './normalization/readTechnicalErrorMessage';
+import { FAILURE_CODES, FAILURE_ERROR_TYPES } from '../constants';
+import { NORMALIZATION_LIMITS } from '../normalization/constants';
+import { readLogProperty } from '../normalization/readLogProperty';
+import type { FailureDiagnostics } from '../types';
+import { getLogSource } from '../normalization/getLogSource';
+import { readTechnicalErrorMessage } from '../normalization/readTechnicalErrorMessage';
 
 export function getFailureDiagnostics(error: unknown): FailureDiagnostics {
   const result: FailureDiagnostics = {

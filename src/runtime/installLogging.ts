@@ -9,17 +9,13 @@ import {
 } from './logTasks';
 import type { LogTaskScope } from './logTasks';
 import * as defaultBackend from '../backend';
-import { prepareLoggingPolicy } from '../prepareLoggingPolicy';
+import { prepareLoggingPolicy } from '../policy/prepareLoggingPolicy';
 import type { LogRecord as SdkLogRecord } from '../backend/types';
 import { APP_LOG_PREFIX, LOG_TRANSPORT_ID } from '../constants';
-import { serializeLogRecord } from '../serializeLogRecord';
-import { formatLogLine } from '../formatLogLine';
-import { getFailureDiagnostics } from '../getFailureDiagnostics';
-import {
-  markLoggingUnavailable,
-  readLogRuntime,
-  setLogRuntime,
-} from '../state';
+import { serializeLogRecord } from '../formatting/serializeLogRecord';
+import { formatLogLine } from '../formatting/formatLogLine';
+import { getFailureDiagnostics } from '../diagnostics/getFailureDiagnostics';
+import { markLoggingUnavailable, readLogRuntime, setLogRuntime } from './state';
 import type {
   DiagnosticRecord,
   LogLevel,

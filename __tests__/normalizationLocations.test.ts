@@ -1,5 +1,5 @@
 import { TEST_POLICY } from './policyFixture';
-import { serializeLogRecord } from '../src/serializeLogRecord';
+import { serializeLogRecord } from '../src/formatting/serializeLogRecord';
 import type { LogRecordInput } from '../src/types';
 
 function input(overrides: Partial<LogRecordInput>): LogRecordInput {

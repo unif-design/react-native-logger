@@ -1,5 +1,5 @@
 import { readLogRuntime } from './state';
-import type { LogTrigger, OperationContext } from './types';
+import type { LogTrigger, OperationContext } from '../types';
 
 export function createOperationContext(
   trigger: LogTrigger,

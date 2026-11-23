@@ -1,6 +1,6 @@
-import type { LogRuntime } from './runtime/types';
-import type { LogFileStatus } from './types';
-import { getFailureDiagnostics } from './getFailureDiagnostics';
+import type { LogRuntime } from './types';
+import type { LogFileStatus } from '../types';
+import { getFailureDiagnostics } from '../diagnostics/getFailureDiagnostics';
 
 // 运行期资源指针，不发布可订阅状态；初始化和释放由 runtime 管理。
 let runtime: LogRuntime | null = null;
