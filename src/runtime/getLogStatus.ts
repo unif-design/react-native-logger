@@ -3,7 +3,7 @@ import {
   readUnavailableLogFailure,
   readUnavailableLogDiagnostic,
 } from './state';
-import type { LogStatus } from './types';
+import type { LogStatus } from '../types';
 
 export function getLogStatus(): LogStatus {
   return (

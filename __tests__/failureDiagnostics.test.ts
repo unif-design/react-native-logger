@@ -1,6 +1,6 @@
 import { TEST_POLICY } from './policyFixture';
 import * as logging from '../src';
-import { serializeLogRecord } from '../src/serializeLogRecord';
+import { serializeLogRecord } from '../src/formatting/serializeLogRecord';
 
 test.each([
   ['ENOSPC', 'storage_full'],

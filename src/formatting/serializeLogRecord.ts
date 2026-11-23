@@ -1,18 +1,18 @@
-import { LOG_LIMITS } from './constants';
+import { LOG_LIMITS } from '../constants';
 import {
   CORRELATION_FIELDS,
   NORMALIZATION_LIMITS,
   OPTIONAL_STRING_FIELDS,
   REQUIRED_STRING_FIELDS,
   UTF16_SURROGATE_UNITS,
-} from './normalization/constants';
-import { normalizeLogRecord } from './normalization/normalizeLogRecord';
+} from '../normalization/constants';
+import { normalizeLogRecord } from '../normalization/normalizeLogRecord';
 import type {
   DiagnosticRecord,
   LogRecordInput,
   LoggingPolicy,
   SerializedLogRecord,
-} from './types';
+} from '../types';
 import { utf8ByteLength } from './utf8ByteLength';
 
 function encodeRecord(record: DiagnosticRecord): SerializedLogRecord {

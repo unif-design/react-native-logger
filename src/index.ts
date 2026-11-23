@@ -2,17 +2,17 @@ import * as defaultLogBackend from './backend';
 
 export { defaultLogBackend };
 export { installLogging } from './runtime/installLogging';
-export { markLoggingUnavailable } from './state';
+export { markLoggingUnavailable } from './runtime/state';
 export { redactDiagnosticText } from './normalization/redactDiagnosticText';
 export { isSensitiveDiagnosticField } from './normalization/isSensitiveDiagnosticField';
 export { consoleTransport } from './backend/transports/console';
 export type { Logger, LogRecord, LogTransport } from './backend/types';
-export { createLogger } from './createLogger';
-export { createOperationContext } from './createOperationContext';
-export { getLogStatus } from './getLogStatus';
-export { getFailureDiagnostics } from './getFailureDiagnostics';
-export { getErrorDiagnostics } from './getErrorDiagnostics';
-export { getLogRetentionPolicy } from './getLogRetentionPolicy';
+export { createLogger } from './runtime/createLogger';
+export { createOperationContext } from './runtime/createOperationContext';
+export { getLogStatus } from './runtime/getLogStatus';
+export { getFailureDiagnostics } from './diagnostics/getFailureDiagnostics';
+export { getErrorDiagnostics } from './diagnostics/getErrorDiagnostics';
+export { getLogRetentionPolicy } from './policy/getLogRetentionPolicy';
 export type {
   AppLogger,
   LogFileStore,

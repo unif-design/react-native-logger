@@ -1,8 +1,8 @@
 import SHA256 from 'crypto-js/sha256.js';
 import sumBy from 'lodash/sumBy.js';
 import type { LogClearFailed, LogFileStatus, LogSnapshot } from '../types';
-import { utf8ByteLength } from '../utf8ByteLength';
-import { getFailureDiagnostics } from '../getFailureDiagnostics';
+import { utf8ByteLength } from '../formatting/utf8ByteLength';
+import { getFailureDiagnostics } from '../diagnostics/getFailureDiagnostics';
 import {
   LOG_ANONYMOUS_PARTITION,
   LOG_CLEAR_MESSAGES,

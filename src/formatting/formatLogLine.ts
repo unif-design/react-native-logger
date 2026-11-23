@@ -1,11 +1,11 @@
-import { BEIJING_OFFSET_MS } from './constants';
+import { BEIJING_OFFSET_MS } from '../constants';
 import type {
   DiagnosticRecord,
   LogSource,
   LogValue,
   LogConsoleTimeZone,
   LogConsoleTimeFormat,
-} from './types';
+} from '../types';
 
 function atom(value: LogValue | readonly LogValue[]): string {
   return typeof value === 'string' && /^[a-z\d_.:/-]+$/i.test(value)
